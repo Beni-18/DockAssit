@@ -1,28 +1,34 @@
 """
 Authentication request and response schemas.
 
-Pydantic v2 models for login, registration, token issuance,
+Pydantic v2 models for registration, login, token issuance,
 and the current-user profile response.
 """
 
-from pydantic import BaseModel, EmailStr
-from typing import Optional
 from datetime import datetime
+
+from pydantic import BaseModel, EmailStr, Field
+
+
+class RegisterRequest(BaseModel):
+    """Payload for creating a new local account."""
+
+    name: str = Field(min_length=1, max_length=100)
+    email: EmailStr
+    # bcrypt only hashes the first 72 bytes of a password; capping the
+    # input length avoids silently truncating longer passwords.
+    password: str = Field(min_length=8, max_length=72)
 
 
 class LoginRequest(BaseModel):
+    """Payload for authenticating with email and password."""
+
     email: EmailStr
-    password: str
+    password: str = Field(min_length=1)
 
 
 class GoogleLoginRequest(BaseModel):
     token: str  # Google ID token
-
-
-class RegisterRequest(BaseModel):
-    name: str
-    email: EmailStr
-    password: str
 
 
 class TokenResponse(BaseModel):
