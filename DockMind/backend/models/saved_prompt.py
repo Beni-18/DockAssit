@@ -7,7 +7,7 @@ retrieved and replayed from the DockAssist interface.
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.sql import func
-from database.database import Base
+from database.base import Base
 
 
 class SavedPrompt(Base):

@@ -17,6 +17,7 @@ Usage::
 """
 
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -56,7 +57,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(
     data: dict,
-    expires_delta: timedelta | None = None,
+    expires_delta: Optional[timedelta] = None,
 ) -> str:
     """
     Build and sign a JWT access token.
@@ -64,24 +65,32 @@ def create_access_token(
     Parameters
     ----------
     data:
-        Arbitrary claims to embed in the token payload (e.g. ``{"sub": "42"}``).
-        A copy is made so the caller's dict is never mutated.
+        Arbitrary claims to embed in the token payload
+        (e.g. {"sub": "42"}).
     expires_delta:
-        Optional custom lifetime. Falls back to ``ACCESS_TOKEN_EXPIRE_MINUTES``
-        from application settings when omitted.
+        Optional custom lifetime. Falls back to
+        ACCESS_TOKEN_EXPIRE_MINUTES when omitted.
 
     Returns
     -------
     str
-        A signed JWT string ready to be returned to the client.
+        A signed JWT string.
     """
     payload = data.copy()
+
     expire = datetime.now(timezone.utc) + (
-        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expires_delta
+        if expires_delta is not None
+        else timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
+
     payload["exp"] = expire
 
-    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    return jwt.encode(
+        payload,
+        settings.JWT_SECRET,
+        algorithm=settings.JWT_ALGORITHM,
+    )
 
 
 def verify_access_token(token: str) -> dict:
@@ -96,13 +105,12 @@ def verify_access_token(token: str) -> dict:
     Returns
     -------
     dict
-        The decoded token payload when the token is valid and unexpired.
+        The decoded payload.
 
     Raises
     ------
     HTTPException (401)
-        If the token is expired, malformed, or the signature is invalid.
-        A ``WWW-Authenticate: Bearer`` header is included per RFC 6750.
+        If the token is expired, malformed, or invalid.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -117,12 +125,14 @@ def verify_access_token(token: str) -> dict:
             algorithms=[settings.JWT_ALGORITHM],
         )
         return payload
+
     except ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
     except JWTError:
         raise credentials_exception
 
@@ -130,10 +140,7 @@ def verify_access_token(token: str) -> dict:
 # ---------------------------------------------------------------------------
 # FastAPI dependency — Bearer token extraction
 # ---------------------------------------------------------------------------
-# Placed here (rather than in an auth module) because every protected router
-# in the project already imports it from config.security. Moving it would
-# require modifying all five existing router files.
-# ---------------------------------------------------------------------------
+
 _bearer_scheme = HTTPBearer()
 
 
@@ -141,22 +148,35 @@ def get_current_user_id(
     credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
 ) -> int:
     """
-    FastAPI dependency that extracts and validates the user ID from a Bearer token.
+    Extract and validate the authenticated user's ID from the JWT.
 
-    Inject via ``Depends(get_current_user_id)`` in any protected route handler.
+    Returns
+    -------
+    int
+        User ID stored in the "sub" claim.
 
     Raises
     ------
     HTTPException (401)
-        If the token is missing, malformed, expired, or does not contain a
-        valid ``sub`` claim.
+        If the token is invalid or missing a valid "sub" claim.
     """
     payload = verify_access_token(credentials.credentials)
+
     subject = payload.get("sub")
-    if not subject:
+
+    if subject is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token is missing the 'sub' claim",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return int(subject)
+
+    try:
+        return int(subject)
+
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID in token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )

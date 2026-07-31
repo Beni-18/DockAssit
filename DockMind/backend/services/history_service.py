@@ -6,6 +6,7 @@ providing the audit trail for all AI-driven Docker operations.
 """
 
 from collections.abc import Sequence
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -21,12 +22,12 @@ class HistoryService:
         db: Session,
         user_id: int,
         prompt: str,
-        action: str | None,
-        resource: str | None,
-        target: str | None,
+        action: Optional[str],
+        resource: Optional[str],
+        target: Optional[str],
         success: bool,
-        error_message: str | None = None,
-        execution_duration: float | None = None,
+        error_message: Optional[str] = None,
+        execution_duration: Optional[float] = None,
     ) -> CommandHistory:
         """
         Record a command history entry and its corresponding execution log.

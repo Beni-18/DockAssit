@@ -9,7 +9,7 @@ from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, St
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from database.database import Base
+from database.base import Base
 
 
 class CommandHistory(Base):

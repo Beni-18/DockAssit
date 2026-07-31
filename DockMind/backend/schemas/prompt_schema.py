@@ -6,6 +6,7 @@ user-saved AI prompt templates.
 """
 
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -18,8 +19,8 @@ class SavePromptRequest(BaseModel):
 
 class UpdatePromptRequest(BaseModel):
     """Payload for updating an existing prompt template."""
-    title: str | None = Field(default=None, min_length=1, max_length=100)
-    content: str | None = Field(default=None, min_length=3, max_length=1000)
+    title: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    content: Optional[str] = Field(default=None, min_length=3, max_length=1000)
 
 
 class PromptResponse(BaseModel):

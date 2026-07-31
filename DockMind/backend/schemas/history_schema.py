@@ -3,6 +3,7 @@ Command history request and response schemas.
 """
 
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -13,12 +14,12 @@ class CommandHistoryResponse(BaseModel):
     id: int
     user_id: int
     prompt: str
-    action: str | None = None
-    resource: str | None = None
-    target: str | None = None
+    action: Optional[str] = None
+    resource: Optional[str] = None
+    target: Optional[str] = None
     success: bool
-    error_message: str | None = None
-    duration: float | None = None
+    error_message: Optional[str] = None
+    duration: Optional[float] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

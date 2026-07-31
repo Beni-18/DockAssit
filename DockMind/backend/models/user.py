@@ -7,7 +7,7 @@ password-based and Google OAuth authentication.
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from sqlalchemy.sql import func
-from database.database import Base
+from database.base import Base
 
 
 class User(Base):
