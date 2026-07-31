@@ -20,11 +20,12 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Handle 401 globally — redirect to login
+// Handle 401 globally — redirect to login (except for auth requests)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isAuthRequest = error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/register')
+    if (error.response?.status === 401 && !isAuthRequest) {
       localStorage.removeItem('access_token')
       window.location.href = '/login'
     }

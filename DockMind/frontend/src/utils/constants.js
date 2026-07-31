@@ -36,8 +36,14 @@ export const POLL_INTERVALS = {
 // Route paths
 export const ROUTES = {
   LOGIN: '/login',
-  DASHBOARD: '/',
+  DASHBOARD: '/dashboard',
+  CONTAINERS: '/containers',
+  MONITORING: '/monitoring',
+  AI_ASSISTANT: '/ai-assistant',
   HISTORY: '/history',
   SAVED_PROMPTS: '/saved-prompts',
+  IMAGES: '/images',
+  VOLUMES: '/volumes',
+  NETWORKS: '/networks',
   SETTINGS: '/settings',
 }

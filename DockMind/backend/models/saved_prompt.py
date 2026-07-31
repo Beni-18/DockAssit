@@ -13,6 +13,9 @@ from database.base import Base
 class SavedPrompt(Base):
     """Stores user-saved reusable AI prompt templates."""
     __tablename__ = "saved_prompts"
+    __table_args__ = (
+        UniqueConstraint('user_id', 'title', name='uq_saved_prompts_user_id_title'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
