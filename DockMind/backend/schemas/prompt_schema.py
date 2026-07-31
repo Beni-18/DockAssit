@@ -5,27 +5,30 @@ Pydantic v2 models for creating, updating, and returning
 user-saved AI prompt templates.
 """
 
-from pydantic import BaseModel
-from typing import Optional
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class SavePromptRequest(BaseModel):
-    title: str
-    content: str
+    """Payload for saving a new prompt template."""
+    title: str = Field(..., min_length=1, max_length=100)
+    content: str = Field(..., min_length=3, max_length=1000)
 
 
 class UpdatePromptRequest(BaseModel):
-    title: Optional[str] = None
-    content: Optional[str] = None
+    """Payload for updating an existing prompt template."""
+    title: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    content: Optional[str] = Field(default=None, min_length=3, max_length=1000)
 
 
 class PromptResponse(BaseModel):
+    """Returned prompt template."""
     id: int
     user_id: int
     title: str
     content: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}

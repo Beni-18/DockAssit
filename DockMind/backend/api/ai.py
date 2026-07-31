@@ -6,8 +6,10 @@ structured Docker operations via the AI service. Does not execute the
 operations directly.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from middleware.auth_middleware import get_current_user
+from models.user import User
 from schemas.ai_schema import InterpretRequest, InterpretResponse
 from services.ai_service import interpret_prompt
 
@@ -15,7 +17,10 @@ router = APIRouter()
 
 
 @router.post("/interpret", response_model=InterpretResponse)
-async def interpret_ai_command(payload: InterpretRequest) -> InterpretResponse:
+async def interpret_ai_command(
+    payload: InterpretRequest,
+    current_user: User = Depends(get_current_user),
+) -> InterpretResponse:
     """
     Process a natural language instruction and extract the Docker intent.
     

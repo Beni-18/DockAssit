@@ -8,7 +8,7 @@ through these schemas for validation and serialisation.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -24,16 +24,16 @@ class ContainerSummary(BaseModel):
     name: str = Field(..., description="Container name.")
     image: str = Field(..., description="Image tag or short ID.")
     status: str = Field(..., description="Container status (running, exited, paused, …).")
-    created: str | None = Field(default=None, description="ISO 8601 creation timestamp.")
+    created: Optional[str] = Field(default=None, description="ISO 8601 creation timestamp.")
     ports: dict[str, Any] = Field(default_factory=dict, description="Exposed port bindings.")
 
 
 class ContainerDetail(ContainerSummary):
     """Full container detail, extending the summary with runtime metadata."""
 
-    command: str | None = Field(default=None, description="Command the container was started with.")
+    command: Optional[str] = Field(default=None, description="Command the container was started with.")
     labels: dict[str, str] = Field(default_factory=dict, description="Container labels.")
-    restart_policy: str | None = Field(default=None, description="Configured restart policy.")
+    restart_policy: Optional[str] = Field(default=None, description="Configured restart policy.")
 
 
 class ContainerLogsResponse(BaseModel):
@@ -75,7 +75,7 @@ class ImageSummary(BaseModel):
     id: str = Field(..., description="Short image ID.")
     tags: list[str] = Field(default_factory=list, description="Repository tags.")
     size: int = Field(..., description="Uncompressed image size in bytes.")
-    created: str | None = Field(default=None, description="ISO 8601 creation timestamp.")
+    created: Optional[str] = Field(default=None, description="ISO 8601 creation timestamp.")
 
 
 # ---------------------------------------------------------------------------
@@ -88,7 +88,7 @@ class VolumeSummary(BaseModel):
     name: str
     driver: str
     mountpoint: str
-    created: str | None = None
+    created: Optional[str] = None
     labels: dict[str, str] = Field(default_factory=dict)
 
 
@@ -104,4 +104,4 @@ class NetworkSummary(BaseModel):
     driver: str
     scope: str
     internal: bool
-    created: str | None = None
+    created: Optional[str] = None

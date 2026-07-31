@@ -6,6 +6,7 @@ and the AI service. The ``InterpretRequest`` / ``InterpretResponse``
 pair is used by the ``POST /api/v1/ai/interpret`` endpoint.
 """
 
+from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -52,13 +53,13 @@ class DockerIntent(BaseModel):
         description="Name or ID of the target resource.",
         examples=["redis"],
     )
-    confidence: float | None = Field(
+    confidence: Optional[float] = Field(
         default=None,
         ge=0.0,
         le=1.0,
         description="Model confidence score for the parsed intent (0.0 – 1.0).",
     )
-    message: str | None = Field(
+    message: Optional[str] = Field(
         default=None,
         description="Optional human-readable explanation of the parsed intent.",
     )
