@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Sidebar from '../../components/common/Sidebar'
+import MessageContent from '../../components/common/MessageContent'
 import api from '../../services/api'
 import { Bot, User, Send, Sparkles, RefreshCw, Terminal } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
@@ -40,24 +41,26 @@ const AIAssistant = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const handleSend = async (textToSend) => {
+  const handleSend = async (textToSend, options = {}) => {
+    const { skipUserBubble = false, confirmed = false } = options
     const prompt = textToSend || input
     if (!prompt.trim()) return
 
-    // Add user message
-    const userMsg = {
-      id: Date.now(),
-      sender: 'user',
-      content: prompt,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    if (!skipUserBubble) {
+      const userMsg = {
+        id: Date.now(),
+        sender: 'user',
+        content: prompt,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }
+      setMessages(prev => [...prev, userMsg])
     }
-    setMessages(prev => [...prev, userMsg])
     if (!textToSend) setInput('')
     setLoading(true)
 
     try {
-      const res = await api.post('/ai/execute', { prompt })
-      
+      const res = await api.post('/ai/execute', { prompt, confirmed })
+
       const botMsg = {
         id: Date.now() + 1,
         sender: 'bot',
@@ -65,7 +68,9 @@ const AIAssistant = () => {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         action: res.data.action,
         target: res.data.target,
-        success: res.data.success
+        success: res.data.success,
+        needsConfirmation: res.data.needs_confirmation,
+        confirmPrompt: res.data.needs_confirmation ? prompt : undefined,
       }
       setMessages(prev => [...prev, botMsg])
     } catch (err) {
@@ -80,6 +85,28 @@ const AIAssistant = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const resolveConfirmation = (msgId) => {
+    setMessages(prev => prev.map(m => (m.id === msgId ? { ...m, needsConfirmation: false } : m)))
+  }
+
+  const handleConfirmAction = (msg) => {
+    resolveConfirmation(msg.id)
+    handleSend(msg.confirmPrompt, { skipUserBubble: true, confirmed: true })
+  }
+
+  const handleCancelAction = (msg) => {
+    resolveConfirmation(msg.id)
+    setMessages(prev => [
+      ...prev,
+      {
+        id: Date.now(),
+        sender: 'bot',
+        content: "Cancelled — nothing was changed.",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ])
   }
 
   return (
@@ -133,16 +160,20 @@ const AIAssistant = () => {
                   {/* Bubble */}
                   <div className="space-y-1.5">
                     <div className={`p-4 rounded-2xl shadow-sm text-sm leading-relaxed ${
-                      msg.sender === 'user' 
-                        ? 'bg-primary text-white rounded-tr-none' 
-                        : msg.isError 
-                        ? 'bg-red-50 border border-red-200 text-red-700 rounded-tl-none'
+                      msg.sender === 'user'
+                        ? 'bg-primary text-white rounded-tr-none'
+                        : msg.isError
+                        ? 'bg-danger/10 border border-danger/30 text-danger rounded-tl-none'
                         : 'bg-surface border border-border text-text rounded-tl-none'
                     }`}>
-                      {msg.content}
+                      {msg.sender === 'user' ? (
+                        <span className="whitespace-pre-wrap">{msg.content}</span>
+                      ) : (
+                        <MessageContent text={msg.content} />
+                      )}
 
-                      {/* Display action status if relevant */}
-                      {msg.action && (
+                      {/* Display action status if relevant (not while a bulk action is still pending confirmation) */}
+                      {msg.action && !msg.needsConfirmation && (
                         <div className="mt-3.5 pt-3 border-t border-border flex items-center gap-2 text-xs font-mono bg-bg/50 px-3 py-2 rounded-lg">
                           <Terminal className="w-4.5 h-4.5 text-primary" />
                           <span className="text-muted">Action:</span>
@@ -150,10 +181,28 @@ const AIAssistant = () => {
                           <span className="text-muted">Target:</span>
                           <span className="font-semibold text-text">{msg.target}</span>
                           <span className={`ml-auto font-semibold px-2 py-0.5 rounded-full text-[10px] ${
-                            msg.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            msg.success ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'
                           }`}>
                             {msg.success ? 'SUCCESS' : 'FAILED'}
                           </span>
+                        </div>
+                      )}
+
+                      {/* A bulk action with no filter needs explicit confirmation before it runs */}
+                      {msg.needsConfirmation && (
+                        <div className="mt-3.5 pt-3 border-t border-border flex items-center gap-2">
+                          <button
+                            onClick={() => handleConfirmAction(msg)}
+                            className="px-3 py-1.5 text-xs font-semibold bg-danger text-white rounded-lg hover:opacity-90 transition-opacity"
+                          >
+                            Yes, proceed
+                          </button>
+                          <button
+                            onClick={() => handleCancelAction(msg)}
+                            className="px-3 py-1.5 text-xs font-semibold border border-border text-muted hover:text-text rounded-lg transition-colors"
+                          >
+                            Cancel
+                          </button>
                         </div>
                       )}
                     </div>

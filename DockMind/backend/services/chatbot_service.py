@@ -26,6 +26,7 @@ lives in ``_CATEGORY_KEYWORDS`` / ``_resolve_targets`` below and is the
 place to extend for new categories or naming conventions.
 """
 
+import asyncio
 import re
 import time
 from typing import Optional
@@ -111,6 +112,25 @@ def _fmt_version(v: dict) -> str:
     return f"Docker version {v['version']}, API {v['api_version']}, {v['os']}/{v['arch']}."
 
 
+def _fmt_bytes(n: int) -> str:
+    size = float(n)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size < 1024 or unit == "TB":
+            return f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} TB"
+
+
+def _fmt_disk_usage(d: dict) -> str:
+    return (
+        f"Total disk used: {_fmt_bytes(d['total_size'])} — "
+        f"images: {_fmt_bytes(d['images_size'])} ({d['images_count']}), "
+        f"containers (writable layers): {_fmt_bytes(d['containers_size'])} ({d['containers_count']}), "
+        f"volumes: {_fmt_bytes(d['volumes_size'])} ({d['volumes_count']}), "
+        f"build cache: {_fmt_bytes(d['build_cache_size'])}."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Interpretation — the LLM extracts a short description, not real names
 # ---------------------------------------------------------------------------
@@ -125,7 +145,8 @@ Schema:
   "target": ""
 }
 
-Allowed actions: start, stop, restart, remove, logs, stats, inspect, list, pull, info, version, describe, chat
+Allowed actions: start, stop, restart, remove, logs, stats, inspect, list, pull, info, version,
+  disk_usage, describe, chat
 Allowed resources: container, image, volume, network, system, none
 
 Rules:
@@ -135,32 +156,47 @@ Rules:
   Copy the word(s) the user used — do not try to resolve it to a real name yourself, that
   happens elsewhere.
 - Use "target": "" (empty string) when the action applies to everything of that resource type
-  with no filter — e.g. "list all containers", "docker info", "docker version".
+  with no filter — e.g. "list all containers", "docker info", "docker version", "restart all
+  containers" (empty target for a start/stop/restart/remove action means literally every
+  container, not "nothing" — that's a deliberate request, not a failure to identify one).
 - For "pull" (pulling a brand new image), "target" is the image name/tag to pull.
+- Use "disk_usage" (resource "system") for anything about disk space, storage used, or how much
+  room images/containers/volumes are taking up — e.g. "show disk usage", "how much space is
+  docker using".
 - Use "describe" (not "list") when the user wants a narrative summary, description, or overview
   rather than a raw list or a single specific action — e.g. "summarize my container activity",
-  "describe all my containers", "give me info on each container", "what's going on with my
-  docker setup", "tell me about my environment". "target" is still "" unless they named a
-  specific container or category to focus on.
-- If the request is not about managing or inspecting Docker at all (a general question, or
-  unrelated conversation), return {"action": "chat", "resource": "none", "target": ""}.
+  "describe all my containers", "give me info on each container", "check system resource usage",
+  "system health summary", "what's going on with my docker setup", "tell me about my
+  environment". This app is a Docker assistant, so treat any "system"/"health"/"resource usage"
+  style question as being about the user's Docker environment, never about the host OS, AWS, or
+  Kubernetes. "target" is still "" unless they named a specific container or category to focus on.
+- If the request is not about managing or inspecting Docker at all (a genuinely unrelated
+  question, e.g. "what is a docker volume" as a definition, or small talk), return
+  {"action": "chat", "resource": "none", "target": ""}.
 
 Examples:
 "stop the database container" -> {"action":"stop","resource":"container","target":"database"}
 "stop the database containers" -> {"action":"stop","resource":"container","target":"database"}
 "restart the redis containers" -> {"action":"restart","resource":"container","target":"redis"}
 "show me all redis containers" -> {"action":"list","resource":"container","target":"redis"}
+"show running containers" -> {"action":"list","resource":"container","target":"running"}
 "list all stopped containers" -> {"action":"list","resource":"container","target":"stopped"}
 "list all unhealthy containers" -> {"action":"list","resource":"container","target":"unhealthy"}
 "restart nginx-web" -> {"action":"restart","resource":"container","target":"nginx-web"}
 "list all containers" -> {"action":"list","resource":"container","target":""}
 "stop all containers" -> {"action":"stop","resource":"container","target":""}
+"restart all containers" -> {"action":"restart","resource":"container","target":""}
+"show container logs" -> {"action":"logs","resource":"container","target":""}
 "what images do I have" -> {"action":"list","resource":"image","target":""}
 "docker version" -> {"action":"version","resource":"system","target":""}
+"show disk usage" -> {"action":"disk_usage","resource":"system","target":""}
+"how much disk space is docker using" -> {"action":"disk_usage","resource":"system","target":""}
 "summarize my container activity" -> {"action":"describe","resource":"container","target":""}
 "describe all my existing containers" -> {"action":"describe","resource":"container","target":""}
 "give me info on each individual container" -> {"action":"describe","resource":"container","target":""}
 "tell me about my database containers" -> {"action":"describe","resource":"container","target":"database"}
+"check system resource usage" -> {"action":"describe","resource":"system","target":""}
+"system health summary" -> {"action":"describe","resource":"system","target":""}
 "what is a docker volume" -> {"action":"chat","resource":"none","target":""}"""
 
 
@@ -358,34 +394,63 @@ def _dispatch_container(
             return _fmt_containers(matched), True, matched_names
         return _fmt_containers(live_containers), True, []
 
-    if action in _MUTATING_CONTAINER_ACTIONS | _SINGLE_CONTAINER_READ_ACTIONS:
+    if action in _MUTATING_CONTAINER_ACTIONS:
+        if description:
+            targets = _resolve_targets(description, live_containers)
+            if not targets:
+                return f"I couldn't find a container matching \"{description}\".", False, []
+        else:
+            # No filter at all (e.g. "restart all containers") means every
+            # container — unlike an unmatched specific description, this is
+            # a deliberate, unambiguous "apply to everything" request.
+            targets = [c["name"] for c in live_containers]
+            if not targets:
+                return "There are no containers to act on.", False, []
+        return _run_container_action(docker_service, action, targets)
+
+    if action in _SINGLE_CONTAINER_READ_ACTIONS:
+        if not description:
+            return _CLARIFY_MESSAGES[action], False, []
         targets = _resolve_targets(description, live_containers)
         if not targets:
             return f"I couldn't find a container matching \"{description}\".", False, []
+        return _run_container_action(docker_service, action, targets)
 
-        lines: list[str] = []
-        success = True
-        for name in targets:
-            try:
-                if action == "start":
-                    lines.append(docker_service.start_container(name)["message"])
-                elif action == "stop":
-                    lines.append(docker_service.stop_container(name)["message"])
-                elif action == "restart":
-                    lines.append(docker_service.restart_container(name)["message"])
-                elif action == "remove":
-                    lines.append(docker_service.remove_container(name)["message"])
-                elif action == "logs":
-                    lines.append(_fmt_logs(docker_service.get_container_logs(name)))
-                elif action == "stats":
-                    lines.append(_fmt_stats(docker_service.get_container_stats(name)))
-                elif action == "inspect":
-                    lines.append(_fmt_container_detail(docker_service.get_container(name)))
-            except DockerServiceError as exc:
-                success = False
-                lines.append(f"{name}: {exc}")
-        separator = "\n\n" if action in _SINGLE_CONTAINER_READ_ACTIONS else "\n"
-        return separator.join(lines), success, targets
+    return None, False, []
+
+
+_CLARIFY_MESSAGES = {
+    "logs": "Which container's logs would you like to see?",
+    "stats": "Which container would you like stats for?",
+    "inspect": "Which container would you like to inspect?",
+}
+
+
+def _run_container_action(docker_service: DockerService, action: str, targets: list[str]) -> tuple[str, bool, list[str]]:
+    """Run ``action`` against every name in ``targets``, collecting one result line each."""
+    lines: list[str] = []
+    success = True
+    for name in targets:
+        try:
+            if action == "start":
+                lines.append(docker_service.start_container(name)["message"])
+            elif action == "stop":
+                lines.append(docker_service.stop_container(name)["message"])
+            elif action == "restart":
+                lines.append(docker_service.restart_container(name)["message"])
+            elif action == "remove":
+                lines.append(docker_service.remove_container(name)["message"])
+            elif action == "logs":
+                lines.append(_fmt_logs(docker_service.get_container_logs(name)))
+            elif action == "stats":
+                lines.append(_fmt_stats(docker_service.get_container_stats(name)))
+            elif action == "inspect":
+                lines.append(_fmt_container_detail(docker_service.get_container(name)))
+        except DockerServiceError as exc:
+            success = False
+            lines.append(f"{name}: {exc}")
+    separator = "\n\n" if action in _SINGLE_CONTAINER_READ_ACTIONS else "\n"
+    return separator.join(lines), success, targets
 
     return None, False, []
 
@@ -433,14 +498,22 @@ def _dispatch(
             return _fmt_info(docker_service.docker_info()), True, []
         if action == "version":
             return _fmt_version(docker_service.docker_version()), True, []
+        if action == "disk_usage":
+            return _fmt_disk_usage(docker_service.disk_usage()), True, []
 
     return None, False, []
+
+
+_CHAT_SYSTEM_PROMPT = """You are DockMind, a friendly Docker assistant embedded in a chat panel that
+renders plain text only. Never use markdown — no #/##/### headers, no **bold**, no numbered lists.
+Write in plain sentences; use a simple "- " at the start of a line for any list items. Keep answers
+concise and genuinely useful."""
 
 
 async def _fallback_chat(prompt: str) -> AiExecuteResponse:
     """Plain conversational reply when no Docker action was identified."""
     provider = ai_service.get_ai_provider()
-    reply = await ai_service.generate_chat_response(prompt, provider)
+    reply = await ai_service.generate_chat_response(prompt, provider, system=_CHAT_SYSTEM_PROMPT)
     return AiExecuteResponse(response=reply, action=None, target=None, success=None)
 
 
@@ -499,15 +572,40 @@ async def _phrase_response(user_prompt: str, facts: str) -> str:
     return f"{intro}\n\n" + "\n".join(body_lines)
 
 
+_RESOURCE_USAGE_KEYWORDS = ("resource", "cpu", "memory", "performance", "usage", "load")
+_MAX_STATS_TARGETS = 8
+
+
+async def _fetch_stats_concurrently(docker_service: DockerService, names: list[str]) -> dict[str, dict]:
+    """
+    Fetch stats for every name in ``names`` at once (docker-py is blocking,
+    so each call runs in its own thread) rather than one at a time — a
+    single stats call takes ~1-2s, and describe needs this to stay
+    interactive even with a dozen-plus running containers.
+    """
+
+    async def _one(name: str) -> tuple[str, Optional[dict]]:
+        try:
+            stats = await asyncio.to_thread(docker_service.get_container_stats, name)
+            return name, stats
+        except DockerServiceError:
+            return name, None
+
+    results = await asyncio.gather(*(_one(n) for n in names))
+    return {name: stats for name, stats in results if stats is not None}
+
+
 def _build_describe_context(containers: list[dict], history_rows: list) -> str:
     """Serialize real container state and recent activity as grounding for a synthesized summary."""
     if containers:
-        container_lines = "\n".join(
-            f"- {c['name']}: image={c['image']}, status={c['status']}"
-            + (f", health={c['health']}" if c.get("health") else "")
-            + f", created={c.get('created', 'unknown')}"
-            for c in containers
-        )
+        lines = []
+        for c in containers:
+            line = f"- {c['name']}: image={c['image']}, status={c['status']}"
+            if c.get("health"):
+                line += f", health={c['health']}"
+            line += f", created={c.get('created', 'unknown')}"
+            lines.append(line)
+        container_lines = "\n".join(lines)
     else:
         container_lines = "(no containers currently exist)"
 
@@ -527,11 +625,23 @@ Recent command activity (most recent first):
 {history_lines}"""
 
 
+_DESCRIBE_SYSTEM_PROMPT = """You are DockMind, a Docker assistant embedded in a chat panel that renders
+plain text only. Using ONLY the real data given to you, answer the user's request in clear, natural
+prose. Never invent a container, image, or activity that isn't listed. Never tell the user to run
+commands themselves or say you lack access — the data below IS your access; describe it directly.
+Be concise: a short paragraph, or a compact bulleted list highlighting what's notable (errors,
+high resource use, unhealthy/stopped containers) rather than a line-by-line report of every single
+container — the user can always ask for more detail on a specific one. Never use markdown — no
+#/##/### headers, no **bold**, no numbered lists. Use a simple "- " at the start of a line for any
+list items, with a blank line between the intro and the list."""
+
+
 async def _describe(prompt: str, description: str, db: Session, user_id: int, docker_service: DockerService) -> AiExecuteResponse:
     """
     Answer a narrative request ("summarize my container activity", "describe
     all my containers") by grounding a chat completion in the real container
-    list and recent history, instead of either hallucinating or executing a
+    list, live stats (when the question is actually about resource usage),
+    and recent history — instead of either hallucinating or executing a
     Docker action. Never raises — a Docker/history fetch failure just means
     a thinner context, not a broken response.
     """
@@ -545,22 +655,52 @@ async def _describe(prompt: str, description: str, db: Session, user_id: int, do
         if matched_names:
             containers = [c for c in containers if c["name"] in matched_names]
 
+    if any(kw in prompt.lower() for kw in _RESOURCE_USAGE_KEYWORDS):
+        return await _describe_resource_usage(prompt, containers, docker_service)
+
     try:
         history_rows = HistoryService.get_user_history(db=db, user_id=user_id, skip=0, limit=10)
     except Exception:
         history_rows = []
 
     context = _build_describe_context(containers, history_rows)
-    grounded_prompt = (
-        f"{context}\n\n"
-        "Using ONLY the real data above, answer the user's request in clear natural language. "
-        "Do not invent containers, images, or activity that isn't listed above.\n\n"
-        f"User request: {prompt}"
-    )
+    grounded_prompt = f"{context}\n\nUser request: {prompt}"
 
     provider = ai_service.get_ai_provider()
-    reply = await ai_service.generate_chat_response(grounded_prompt, provider)
+    reply = await ai_service.generate_chat_response(grounded_prompt, provider, system=_DESCRIBE_SYSTEM_PROMPT)
     return AiExecuteResponse(response=reply, action=None, target=None, success=None)
+
+
+async def _describe_resource_usage(prompt: str, containers: list[dict], docker_service: DockerService) -> AiExecuteResponse:
+    """
+    Handle the numeric-heavy half of "describe": actual CPU/memory figures.
+    A 3B model asked to freely narrate several containers' stats will get
+    numbers wrong or claim data is missing when it isn't (verified — this
+    is exactly what happened here on the first attempt). So this follows
+    the same rule as ``_phrase_response``: never let the model regenerate
+    figures, only let it write a one-sentence intro, and show the exact,
+    concurrently-fetched stats underneath, untouched.
+    """
+    running_names = [c["name"] for c in containers if c["status"] == "running"][:_MAX_STATS_TARGETS]
+    stats_by_name = await _fetch_stats_concurrently(docker_service, running_names)
+
+    fact_lines = [_fmt_stats(stats_by_name[name]) for name in running_names if name in stats_by_name]
+    if not fact_lines:
+        return AiExecuteResponse(
+            response="I couldn't fetch live resource usage right now — the Docker daemon may be busy or unreachable.",
+            action=None,
+            target=None,
+            success=None,
+        )
+
+    try:
+        provider = ai_service.get_ai_provider()
+        message = f'The user asked: "{prompt}"\n\nExact result: resource usage for {len(fact_lines)} running container(s)'
+        intro = (await ai_service.generate_chat_response(message, provider, system=_INTRO_SYSTEM_PROMPT)).strip()
+    except Exception:
+        intro = "Here's the current resource usage:"
+
+    return AiExecuteResponse(response=f"{intro}\n\n" + "\n".join(fact_lines), action=None, target=None, success=None)
 
 
 def _log_each_target(
@@ -593,7 +733,9 @@ def _log_each_target(
         )
 
 
-async def execute_prompt(db: Session, user_id: int, prompt: str, docker_service: DockerService) -> AiExecuteResponse:
+async def execute_prompt(
+    db: Session, user_id: int, prompt: str, docker_service: DockerService, confirmed: bool = False
+) -> AiExecuteResponse:
     """
     Interpret ``prompt``, resolve its target description against live Docker
     state, dispatch it to the Docker SDK if it names a supported action, log
@@ -622,6 +764,21 @@ async def execute_prompt(db: Session, user_id: int, prompt: str, docker_service:
         # "stop the redis containers" despite matching few-shot examples.
         # Recover it directly from the raw text if it's actually there.
         description = _fallback_description_from_prompt(prompt, live_containers)
+
+    if action in _MUTATING_CONTAINER_ACTIONS and resource == "container" and not description and not confirmed:
+        # Genuinely unfiltered ("restart all containers") — Docker has no
+        # concept of "this app's containers", so this would affect every
+        # container the daemon manages, including unrelated projects on a
+        # shared machine. Preview it and require an explicit confirmed=true
+        # resend rather than executing a wide, hard-to-undo action blind.
+        names = [c["name"] for c in live_containers]
+        if not names:
+            return AiExecuteResponse(response="There are no containers to act on.", action=action, target=None, success=False)
+        preview = (
+            f"This will {action} all {len(names)} container(s) on this machine — including any "
+            "from other, unrelated projects, not just this app's:\n\n" + "\n".join(f"- {n}" for n in names)
+        )
+        return AiExecuteResponse(response=preview, action=action, target=None, success=None, needs_confirmation=True)
 
     started_at = time.perf_counter()
     response_text, success, targets = _dispatch(docker_service, action, resource, description, live_containers)
