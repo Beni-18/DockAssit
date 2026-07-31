@@ -5,9 +5,16 @@ import { ThemeProvider } from './context/ThemeContext'
 import PrivateRoute from './components/common/PrivateRoute'
 
 import Login from './pages/Login/Login'
+import Register from './pages/Register/Register'
 import Dashboard from './pages/Dashboard/Dashboard'
+import Containers from './pages/Containers/Containers'
+import Monitoring from './pages/Monitoring/Monitoring'
+import AIAssistant from './pages/AIAssistant/AIAssistant'
 import History from './pages/History/History'
 import FrequentCommands from './pages/FrequentCommands/FrequentCommands'
+import Images from './pages/Images/Images'
+import Volumes from './pages/Volumes/Volumes'
+import Networks from './pages/Networks/Networks'
 import Settings from './pages/Settings/Settings'
 
 function App() {
@@ -17,11 +24,37 @@ function App() {
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route
-              path="/"
+              path="/dashboard"
               element={
                 <PrivateRoute>
                   <Dashboard />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/containers"
+              element={
+                <PrivateRoute>
+                  <Containers />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/monitoring"
+              element={
+                <PrivateRoute>
+                  <Monitoring />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/ai-assistant"
+              element={
+                <PrivateRoute>
+                  <AIAssistant />
                 </PrivateRoute>
               }
             />
@@ -38,6 +71,30 @@ function App() {
               element={
                 <PrivateRoute>
                   <FrequentCommands />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/images"
+              element={
+                <PrivateRoute>
+                  <Images />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/volumes"
+              element={
+                <PrivateRoute>
+                  <Volumes />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/networks"
+              element={
+                <PrivateRoute>
+                  <Networks />
                 </PrivateRoute>
               }
             />

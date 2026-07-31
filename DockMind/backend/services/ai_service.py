@@ -42,10 +42,26 @@ Schema:
 }
 
 Allowed actions:
-start, stop, restart, remove, logs, stats, list
+start, stop, restart, remove, logs, stats, inspect, pull, list, info, version
 
 Allowed resources:
-container, image, volume, network
+container, image, volume, network, system
+
+Rules:
+- "target" is the name or ID of the single resource the action applies to.
+  Include it for start, stop, restart, remove, logs, stats, inspect, pull.
+- Omit "target" (or set it to null) for actions that apply to every resource
+  of a type, not one: list, info, version.
+- Use resource "system" with action "info" or "version" for questions about
+  the Docker daemon/engine itself (not a specific container/image/etc).
+
+Examples:
+"restart the nginx container" -> {"action":"restart","resource":"container","target":"nginx"}
+"show me all containers" -> {"action":"list","resource":"container","target":null}
+"what images do I have" -> {"action":"list","resource":"image","target":null}
+"show logs for redis" -> {"action":"logs","resource":"container","target":"redis"}
+"cpu and memory usage of api" -> {"action":"stats","resource":"container","target":"api"}
+"docker version" -> {"action":"version","resource":"system","target":null}
 
 Never explain anything.
 Never return markdown.

@@ -12,6 +12,14 @@ export const login = async (email, password) => {
   return response.data
 }
 
+// Register with name, email, and password → receives JWT access token
+export const register = async (name, email, password) => {
+  const response = await api.post('/auth/register', { name, email, password })
+  const { access_token } = response.data
+  localStorage.setItem('access_token', access_token)
+  return response.data
+}
+
 // Google OAuth login
 export const googleLogin = async (googleToken) => {
   const response = await api.post('/auth/google', { token: googleToken })

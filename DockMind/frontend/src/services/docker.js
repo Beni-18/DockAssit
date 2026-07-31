@@ -53,3 +53,21 @@ export const getDockerInfo = async () => {
   const response = await api.get('/docker/info')
   return response.data
 }
+
+// Run a new custom container
+export const runContainer = async (image, name, ports, environment) => {
+  const response = await api.post('/docker/containers', { image, name, ports, environment })
+  return response.data
+}
+
+// Deploy a Docker Compose stack
+export const deployCompose = async (stackName, composeContent) => {
+  const response = await api.post('/docker/compose', { stack_name: stackName, compose_content: composeContent })
+  return response.data
+}
+
+// Create a new Docker network
+export const createNetwork = async (name, driver) => {
+  const response = await api.post('/docker/networks', { name, driver })
+  return response.data
+}

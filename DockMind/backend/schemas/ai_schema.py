@@ -39,17 +39,24 @@ class DockerIntent(BaseModel):
 
     action: str = Field(
         ...,
-        description="Docker lifecycle action (e.g. start, stop, restart, remove, list, logs).",
+        description=(
+            "Docker action: start, stop, restart, remove, logs, stats, inspect, "
+            "pull, list, info, or version."
+        ),
         examples=["restart"],
     )
     resource: str = Field(
         ...,
-        description="Docker resource type targeted by the action (container, image, volume, network).",
+        description="Docker resource type targeted by the action (container, image, volume, network, system).",
         examples=["container"],
     )
-    target: str = Field(
-        ...,
-        description="Name or ID of the target resource.",
+    target: Optional[str] = Field(
+        default=None,
+        description=(
+            "Name or ID of the target resource. Required for actions on a single "
+            "resource (start/stop/restart/remove/logs/stats/inspect/pull); omitted "
+            "for actions on all resources of a type (list/info/version)."
+        ),
         examples=["nginx"],
     )
 
@@ -81,4 +88,48 @@ class ChatResponse(BaseModel):
         ...,
         description="The AI model's generated response.",
         examples=["Docker volumes are the preferred mechanism for persisting data..."],
+    )
+
+
+class AiExecuteRequest(BaseModel):
+    """Inbound payload for the unified natural-language execution endpoint."""
+
+    prompt: str = Field(
+        ...,
+        min_length=1,
+        max_length=2000,
+        description="Natural language Docker instruction or question.",
+        examples=["Restart the nginx container"],
+    )
+
+    @field_validator("prompt")
+    @classmethod
+    def prompt_must_not_be_blank(cls, value: str) -> str:
+        """Reject prompts that consist solely of whitespace."""
+        if not value.strip():
+            raise ValueError("Prompt must not be blank.")
+        return value.strip()
+
+
+class AiExecuteResponse(BaseModel):
+    """
+    Result of interpreting and (when applicable) executing a natural
+    language prompt against the Docker SDK.
+    """
+
+    response: str = Field(
+        ...,
+        description="Human-readable summary of what happened, or a conversational reply.",
+    )
+    action: Optional[str] = Field(
+        default=None,
+        description="The Docker action that was identified, if any.",
+    )
+    target: Optional[str] = Field(
+        default=None,
+        description="The resource the action targeted, if any.",
+    )
+    success: Optional[bool] = Field(
+        default=None,
+        description="Whether the identified action succeeded. Omitted for pure chat replies.",
     )

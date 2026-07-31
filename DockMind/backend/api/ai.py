@@ -7,10 +7,19 @@ AI service. Does not execute Docker operations directly.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
+from database.database import get_db
 from middleware.auth_middleware import get_current_user
 from models.user import User
-from schemas.ai_schema import ChatRequest, ChatResponse, DockerIntent, InterpretRequest
+from schemas.ai_schema import (
+    AiExecuteRequest,
+    AiExecuteResponse,
+    ChatRequest,
+    ChatResponse,
+    DockerIntent,
+    InterpretRequest,
+)
 from services.ai_service import (
     AIInvalidResponseError,
     AIProvider,
@@ -21,6 +30,8 @@ from services.ai_service import (
     get_ai_provider,
     interpret_prompt,
 )
+from services.chatbot_service import execute_prompt
+from services.docker_service import DockerService, get_docker_service
 
 router = APIRouter()
 
@@ -64,3 +75,28 @@ async def chat_with_ai(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
     return ChatResponse(response=reply)
+
+
+@router.post("/execute", response_model=AiExecuteResponse)
+async def execute_ai_command(
+    payload: AiExecuteRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    docker_service: DockerService = Depends(get_docker_service),
+) -> AiExecuteResponse:
+    """
+    Interpret a natural language prompt and, when it names a supported
+    Docker action, execute it via the Docker SDK and return the real result.
+    Falls back to a conversational reply for anything else. Every executed
+    action is recorded to command history.
+    """
+    try:
+        return await execute_prompt(db=db, user_id=current_user.id, prompt=payload.prompt, docker_service=docker_service)
+    except AIProviderUnavailableError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except AIProviderTimeoutError as exc:
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=str(exc)) from exc
+    except AIInvalidResponseError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+    except AIServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
