@@ -23,6 +23,10 @@ class ContainerSummary(BaseModel):
     name: str = Field(..., description="Container name.")
     image: str = Field(..., description="Image tag or short ID.")
     status: str = Field(..., description="Container status (running, exited, paused, …).")
+    health: Optional[str] = Field(
+        default=None,
+        description="Health check status (healthy, unhealthy, starting), if the image defines one.",
+    )
     created: Optional[str] = Field(default=None, description="ISO 8601 creation timestamp.")
     ports: dict[str, Any] = Field(default_factory=dict, description="Exposed port bindings.")
 

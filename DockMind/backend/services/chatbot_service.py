@@ -45,7 +45,10 @@ from services.history_service import HistoryService
 def _fmt_containers(containers: list[dict]) -> str:
     if not containers:
         return "No containers found."
-    lines = [f"- {c['name']} ({c['status']}) — {c['image']}" for c in containers]
+    lines = []
+    for c in containers:
+        health_suffix = f", {c['health']}" if c.get("health") else ""
+        lines.append(f"- {c['name']} ({c['status']}{health_suffix}) — {c['image']}")
     return f"Found {len(containers)} container(s):\n" + "\n".join(lines)
 
 
@@ -88,7 +91,8 @@ def _fmt_logs(logs: dict) -> str:
 
 
 def _fmt_container_detail(c: dict) -> str:
-    return f"{c['name']} — status: {c['status']}, image: {c['image']}"
+    health_suffix = f", health: {c['health']}" if c.get("health") else ""
+    return f"{c['name']} — status: {c['status']}{health_suffix}, image: {c['image']}"
 
 
 def _fmt_image_detail(img: dict) -> str:
@@ -126,9 +130,10 @@ Allowed resources: container, image, volume, network, system, none
 
 Rules:
 - "target" is a short free-text description of what the action applies to: a container name,
-  part of a name, or a category the user described (e.g. "database", "web server", "cache",
-  "redis"). Copy the words the user used — do not try to resolve it to a real name yourself,
-  that happens elsewhere.
+  part of a name, a category the user described (e.g. "database", "web server", "cache",
+  "redis"), or a state the user described (e.g. "running", "stopped", "unhealthy", "paused").
+  Copy the word(s) the user used — do not try to resolve it to a real name yourself, that
+  happens elsewhere.
 - Use "target": "" (empty string) when the action applies to everything of that resource type
   with no filter — e.g. "list all containers", "docker info", "docker version".
 - For "pull" (pulling a brand new image), "target" is the image name/tag to pull.
@@ -145,6 +150,8 @@ Examples:
 "stop the database containers" -> {"action":"stop","resource":"container","target":"database"}
 "restart the redis containers" -> {"action":"restart","resource":"container","target":"redis"}
 "show me all redis containers" -> {"action":"list","resource":"container","target":"redis"}
+"list all stopped containers" -> {"action":"list","resource":"container","target":"stopped"}
+"list all unhealthy containers" -> {"action":"list","resource":"container","target":"unhealthy"}
 "restart nginx-web" -> {"action":"restart","resource":"container","target":"nginx-web"}
 "list all containers" -> {"action":"list","resource":"container","target":""}
 "stop all containers" -> {"action":"stop","resource":"container","target":""}
@@ -194,6 +201,57 @@ _CATEGORY_KEYWORDS: dict[str, list[str]] = {
 }
 
 
+# Container *state* is a completely different axis from *type* (the map
+# above): "stopped"/"unhealthy" describe what a container is doing right
+# now, not what software it runs. Docker exposes this as two independent
+# fields — ``status`` (running/exited/paused/restarting/created/dead) and,
+# only when the image defines a HEALTHCHECK, ``health``
+# (healthy/unhealthy/starting) — so they're matched separately here rather
+# than folded into the image-keyword map above.
+_STATUS_SYNONYMS: dict[str, str] = {
+    "running": "running",
+    "active": "running",
+    "up": "running",
+    "online": "running",
+    "stopped": "exited",
+    "inactive": "exited",
+    "unactive": "exited",  # non-standard but common phrasing
+    "down": "exited",
+    "off": "exited",
+    "exited": "exited",
+    "dead": "dead",
+    "paused": "paused",
+    "restarting": "restarting",
+    "created": "created",
+}
+
+_HEALTH_SYNONYMS: dict[str, str] = {
+    "healthy": "healthy",
+    "unhealthy": "unhealthy",
+    "starting": "starting",
+}
+
+
+def _match_state_filter(desc: str, containers: list[dict]) -> Optional[list[str]]:
+    """
+    Match a description against container *state* (status or health) rather
+    than *type*. Returns ``None`` (not an empty list) when ``desc`` isn't a
+    recognized state word at all, so the caller knows to fall through to
+    category/substring matching instead of concluding "zero matches".
+    """
+    word = desc[:-1] if desc.endswith("s") and desc not in _STATUS_SYNONYMS else desc
+
+    status_value = _STATUS_SYNONYMS.get(word)
+    if status_value:
+        return [c["name"] for c in containers if (c.get("status") or "").lower() == status_value]
+
+    health_value = _HEALTH_SYNONYMS.get(word)
+    if health_value:
+        return [c["name"] for c in containers if (c.get("health") or "").lower() == health_value]
+
+    return None
+
+
 def _match_category_keywords(desc: str) -> Optional[list[str]]:
     """
     Look up ``desc`` in ``_CATEGORY_KEYWORDS``, tolerating the minor phrasing
@@ -232,7 +290,7 @@ def _fallback_description_from_prompt(raw_prompt: str, containers: list[dict]) -
         if c["name"].lower() in prompt_lower:
             return c["name"]
 
-    for key in _CATEGORY_KEYWORDS:
+    for key in list(_STATUS_SYNONYMS) + list(_HEALTH_SYNONYMS) + list(_CATEGORY_KEYWORDS):
         if key in prompt_lower:
             return key
 
@@ -265,6 +323,10 @@ def _resolve_targets(description: str, containers: list[dict]) -> list[str]:
     exact = [c["name"] for c in containers if c["name"].lower() == desc]
     if exact:
         return exact
+
+    state_matches = _match_state_filter(desc, containers)
+    if state_matches is not None:
+        return state_matches
 
     keywords = _match_category_keywords(desc)
     if keywords:
@@ -382,11 +444,68 @@ async def _fallback_chat(prompt: str) -> AiExecuteResponse:
     return AiExecuteResponse(response=reply, action=None, target=None, success=None)
 
 
+_PHRASING_SYSTEM_PROMPT = """You are DockMind, a Docker assistant. You've already performed an action or
+looked something up — the exact, verified result is given to you below. Answer the user's original
+request in one short, natural, conversational sentence based on that result.
+
+Rules:
+- Never invent, omit, or change a single fact, name, number, or status from the result below.
+- Be concise and direct, like a helpful colleague, not a verbose report.
+- Don't say "the result shows" or "according to the data" — just answer naturally, as if you
+  already knew it.
+- No markdown."""
+
+_INTRO_SYSTEM_PROMPT = """You are DockMind, a Docker assistant. The user asked a question, and the exact
+answer already exists as data that will be displayed right after your sentence — you are not being asked
+to list it. Write ONE short, natural, conversational sentence introducing that result (e.g. "Here are your
+database containers:" or "Found 3 matches:"). Do not invent counts or names beyond what's given. No markdown,
+no list, just the one intro sentence."""
+
+
+async def _phrase_response(user_prompt: str, facts: str) -> str:
+    """
+    Turn an already-correct, deterministic result into a natural,
+    conversational reply — never changes what happened, only how it's said.
+
+    Multi-line results (container/image lists, logs, stats for several
+    targets) are never handed to the model to regenerate — a small model
+    will occasionally drop an entry when asked to reproduce a list, which is
+    exactly the accuracy this whole pipeline exists to guarantee. Instead the
+    model only writes a short intro sentence and the real data is appended
+    verbatim, untouched. Single-line results (a single confirmation, a
+    single stat, a version string) are short enough to let the model
+    rephrase in full. Falls back to the raw facts verbatim if the model call
+    itself fails, so a flaky phrasing pass can never make a correct answer
+    disappear.
+    """
+    lines = facts.strip().splitlines()
+
+    if len(lines) <= 1:
+        try:
+            provider = ai_service.get_ai_provider()
+            message = f'The user asked: "{user_prompt}"\n\nVerified result:\n{facts}'
+            return await ai_service.generate_chat_response(message, provider, system=_PHRASING_SYSTEM_PROMPT)
+        except Exception:
+            return facts
+
+    summary_line, body_lines = lines[0], lines[1:]
+    try:
+        provider = ai_service.get_ai_provider()
+        message = f'The user asked: "{user_prompt}"\n\nExact result: {summary_line}'
+        intro = (await ai_service.generate_chat_response(message, provider, system=_INTRO_SYSTEM_PROMPT)).strip()
+    except Exception:
+        intro = summary_line
+
+    return f"{intro}\n\n" + "\n".join(body_lines)
+
+
 def _build_describe_context(containers: list[dict], history_rows: list) -> str:
     """Serialize real container state and recent activity as grounding for a synthesized summary."""
     if containers:
         container_lines = "\n".join(
-            f"- {c['name']}: image={c['image']}, status={c['status']}, created={c.get('created', 'unknown')}"
+            f"- {c['name']}: image={c['image']}, status={c['status']}"
+            + (f", health={c['health']}" if c.get("health") else "")
+            + f", created={c.get('created', 'unknown')}"
             for c in containers
         )
     else:
@@ -514,10 +633,14 @@ async def execute_prompt(db: Session, user_id: int, prompt: str, docker_service:
 
     is_loggable_action = action in _MUTATING_CONTAINER_ACTIONS | _SINGLE_CONTAINER_READ_ACTIONS | {"pull", "remove"}
     if is_loggable_action and targets:
+        # History gets the raw, deterministic facts — never the conversational
+        # paraphrase — so the audit trail stays exact even if phrasing drifts.
         _log_each_target(db, user_id, prompt, action, resource, targets, success, None if success else response_text, duration)
 
+    phrased_response = await _phrase_response(prompt, response_text)
+
     return AiExecuteResponse(
-        response=response_text,
+        response=phrased_response,
         action=action,
         target=", ".join(targets) if targets else None,
         success=success,

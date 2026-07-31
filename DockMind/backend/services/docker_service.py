@@ -73,6 +73,10 @@ def _serialize_container(c: "docker.models.containers.Container") -> dict:
         "name": c.name,
         "image": c.image.tags[0] if c.image.tags else c.image.short_id,
         "status": c.status,
+        # Only present when the image defines a HEALTHCHECK — "healthy",
+        # "unhealthy", or "starting". None otherwise (not the same as status:
+        # a container can be "running" with no health check configured at all).
+        "health": (c.attrs.get("State", {}).get("Health") or {}).get("Status"),
         "created": c.attrs.get("Created"),
         "ports": c.ports or {},
         # ``Cmd`` is a list in exec form (e.g. ["redis-server"]) or a string in shell form.
