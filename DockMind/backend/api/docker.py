@@ -6,8 +6,10 @@ All routes delegate to ``services.docker_service`` which handles SDK
 interaction and exception translation.
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
+from middleware.auth_middleware import get_current_user
+from models.user import User
 from schemas.docker_schema import (
     ContainerActionResponse,
     ContainerDetail,
@@ -20,7 +22,7 @@ from schemas.docker_schema import (
 )
 from services import docker_service
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 # ---------------------------------------------------------------------------
