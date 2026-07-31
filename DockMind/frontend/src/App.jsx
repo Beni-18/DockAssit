@@ -11,7 +11,7 @@ import Containers from './pages/Containers/Containers'
 import Monitoring from './pages/Monitoring/Monitoring'
 import AIAssistant from './pages/AIAssistant/AIAssistant'
 import History from './pages/History/History'
-import SavedPrompts from './pages/SavedPrompts/SavedPrompts'
+import FrequentCommands from './pages/FrequentCommands/FrequentCommands'
 import Images from './pages/Images/Images'
 import Volumes from './pages/Volumes/Volumes'
 import Networks from './pages/Networks/Networks'
@@ -67,10 +67,10 @@ function App() {
               }
             />
             <Route
-              path="/saved-prompts"
+              path="/frequent-commands"
               element={
                 <PrivateRoute>
-                  <SavedPrompts />
+                  <FrequentCommands />
                 </PrivateRoute>
               }
             />

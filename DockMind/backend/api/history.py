@@ -11,10 +11,35 @@ from sqlalchemy.orm import Session
 from database.database import get_db
 from middleware.auth_middleware import get_current_user
 from models.user import User
-from schemas.history_schema import CommandHistoryResponse
+from schemas.history_schema import CommandHistoryResponse, FrequentCommandResponse
 from services.history_service import HistoryService
 
 router = APIRouter()
+
+
+@router.get("/frequent", response_model=list[FrequentCommandResponse])
+def get_frequent_commands(
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of frequent commands to return"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get the authenticated user's most frequently executed commands.
+
+    Aggregated from command history, ranked by how many times each distinct
+    (action, resource, target) combination has been run, most frequent first.
+    """
+    rows = HistoryService.get_frequent_commands(db=db, user_id=current_user.id, limit=limit)
+    return [
+        FrequentCommandResponse(
+            action=row.action,
+            resource=row.resource,
+            target=row.target,
+            count=row.count,
+            last_executed_at=row.last_executed_at,
+        )
+        for row in rows
+    ]
 
 
 @router.get("/", response_model=list[CommandHistoryResponse])

@@ -3,20 +3,21 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { ROUTES } from '../../utils/constants'
-import { 
-  LayoutDashboard, 
-  Boxes, 
-  BarChart3, 
-  Bot, 
-  ClipboardList, 
-  Bookmark, 
-  Disc, 
-  HardDrive, 
-  Network, 
+import BrandMark from './BrandMark'
+import {
+  LayoutDashboard,
+  Boxes,
+  BarChart3,
+  Bot,
+  ClipboardList,
+  Zap,
+  Disc,
+  HardDrive,
+  Network,
   Settings as SettingsIcon,
   LogOut,
   Sun,
-  Moon
+  Moon,
 } from 'lucide-react'
 
 const navItems = [
@@ -25,7 +26,7 @@ const navItems = [
   { label: 'Monitoring', path: ROUTES.MONITORING, icon: BarChart3 },
   { label: 'AI Assistant', path: ROUTES.AI_ASSISTANT, icon: Bot },
   { label: 'Command History', path: ROUTES.HISTORY, icon: ClipboardList },
-  { label: 'Saved Prompts', path: ROUTES.SAVED_PROMPTS, icon: Bookmark },
+  { label: 'Frequent Commands', path: ROUTES.FREQUENT_COMMANDS, icon: Zap },
   { label: 'Images', path: ROUTES.IMAGES, icon: Disc },
   { label: 'Volumes', path: ROUTES.VOLUMES, icon: HardDrive },
   { label: 'Networks', path: ROUTES.NETWORKS, icon: Network },
@@ -40,15 +41,8 @@ const Sidebar = () => {
     <aside className="w-64 min-h-screen bg-surface text-muted border-r border-border flex flex-col shrink-0">
       {/* Logo */}
       <div className="p-6 border-b border-border">
-        <div className="flex items-center gap-3">
-          <div className="bg-primary/10 text-primary p-2 rounded-lg">
-            <span className="text-xl" role="img" aria-label="whale">🐳</span>
-          </div>
-          <div>
-            <h1 className="text-md font-bold text-text tracking-wider uppercase">Docker AI</h1>
-            <p className="text-xs text-muted">Dashboard</p>
-          </div>
-        </div>
+        <BrandMark size="md" />
+        <p className="text-xs text-muted mt-2">AI Docker Dashboard</p>
       </div>
 
       {/* Navigation */}
@@ -82,23 +76,23 @@ const Sidebar = () => {
             {user?.name?.charAt(0) || 'U'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-text truncate">{user?.name || 'Nithish A S'}</p>
-            <p className="text-xs text-muted truncate">{user?.email || 'admin@docker.ai'}</p>
+            <p className="text-sm font-semibold text-text truncate">{user?.name || 'User'}</p>
+            <p className="text-xs text-muted truncate">{user?.email || ''}</p>
           </div>
         </div>
-        
+
         {/* Theme Toggle Button */}
         <button
           onClick={toggleTheme}
           className="w-full flex items-center gap-2 text-sm text-muted hover:text-text hover:bg-bg/85 transition-all duration-200 px-3 py-2 rounded-lg mb-2"
         >
-          {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500 animate-pulse" /> : <Moon className="w-4 h-4 text-indigo-500" />}
+          {theme === 'dark' ? <Sun className="w-4 h-4 text-warning" /> : <Moon className="w-4 h-4 text-primary" />}
           <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
         </button>
 
         <button
           onClick={logout}
-          className="w-full flex items-center gap-2 text-sm text-red-500 hover:text-red-600 hover:bg-red-500/10 transition-all duration-200 px-3 py-2 rounded-lg"
+          className="w-full flex items-center gap-2 text-sm text-danger hover:opacity-80 hover:bg-danger/10 transition-all duration-200 px-3 py-2 rounded-lg"
         >
           <LogOut className="w-4 h-4" />
           <span>Logout</span>

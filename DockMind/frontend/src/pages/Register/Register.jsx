@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { register } from '../../services/auth'
 import { useAuth } from '../../context/AuthContext'
 import { User, Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react'
+import BrandMark from '../../components/common/BrandMark'
 
 const Register = () => {
   const navigate = useNavigate()
@@ -45,14 +46,9 @@ const Register = () => {
 
       <div className="w-full max-w-md z-10">
         {/* Logo and Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3.5 bg-surface border border-border rounded-2xl mb-4 shadow-xl shadow-black/10 hover:scale-105 transition-transform duration-300">
-            <span className="text-4xl" role="img" aria-label="whale">🐳</span>
-          </div>
-          <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-            DockMind
-          </h1>
-          <p className="text-muted text-sm mt-2 font-medium tracking-wide">
+        <div className="flex flex-col items-center text-center mb-8">
+          <BrandMark size="lg" />
+          <p className="text-muted text-sm mt-3 font-medium tracking-wide">
             AI-POWERED DOCKER HEALTH DASHBOARD
           </p>
         </div>

@@ -41,7 +41,7 @@ export const ROUTES = {
   MONITORING: '/monitoring',
   AI_ASSISTANT: '/ai-assistant',
   HISTORY: '/history',
-  SAVED_PROMPTS: '/saved-prompts',
+  FREQUENT_COMMANDS: '/frequent-commands',
   IMAGES: '/images',
   VOLUMES: '/volumes',
   NETWORKS: '/networks',

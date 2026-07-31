@@ -8,6 +8,8 @@ providing the audit trail for all AI-driven Docker operations.
 from collections.abc import Sequence
 from typing import Optional
 
+from sqlalchemy import func
+from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
 
 from models.command_history import CommandHistory
@@ -74,6 +76,33 @@ class HistoryService:
             .filter(CommandHistory.user_id == user_id)
             .order_by(CommandHistory.created_at.desc())
             .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    @staticmethod
+    def get_frequent_commands(db: Session, user_id: int, limit: int = 10) -> Sequence[Row]:
+        """
+        Return the user's most frequently executed commands, aggregated from
+        their command history and ranked by how often each distinct
+        (action, resource, target) combination has been run.
+        """
+        return (
+            db.query(
+                CommandHistory.action,
+                CommandHistory.resource,
+                CommandHistory.target,
+                func.count(CommandHistory.id).label("count"),
+                func.max(CommandHistory.created_at).label("last_executed_at"),
+            )
+            .filter(
+                CommandHistory.user_id == user_id,
+                CommandHistory.action.isnot(None),
+                CommandHistory.resource.isnot(None),
+                CommandHistory.target.isnot(None),
+            )
+            .group_by(CommandHistory.action, CommandHistory.resource, CommandHistory.target)
+            .order_by(func.count(CommandHistory.id).desc(), func.max(CommandHistory.created_at).desc())
             .limit(limit)
             .all()
         )

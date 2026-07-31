@@ -2,7 +2,8 @@ import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { login } from '../../services/auth'
 import { useAuth } from '../../context/AuthContext'
-import { User, Lock, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react'
+import { Lock, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react'
+import BrandMark from '../../components/common/BrandMark'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -26,7 +27,7 @@ const Login = () => {
       if (typeof detail === 'string') {
         msg = detail
       } else if (Array.isArray(detail)) {
-        msg = detail.map(d => d.msg || JSON.stringify(d)).join(', ')
+        msg = detail.map((d) => d.msg || JSON.stringify(d)).join(', ')
       } else if (detail) {
         msg = JSON.stringify(detail)
       }
@@ -45,14 +46,9 @@ const Login = () => {
 
       <div className="w-full max-w-md z-10">
         {/* Logo and Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3.5 bg-surface border border-border rounded-2xl mb-4 shadow-xl shadow-black/10 hover:scale-105 transition-transform duration-300">
-            <span className="text-4xl" role="img" aria-label="whale">🐳</span>
-          </div>
-          <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-            DockMind
-          </h1>
-          <p className="text-muted text-sm mt-2 font-medium tracking-wide">
+        <div className="flex flex-col items-center text-center mb-8">
+          <BrandMark size="lg" />
+          <p className="text-muted text-sm mt-3 font-medium tracking-wide">
             AI-POWERED DOCKER HEALTH DASHBOARD
           </p>
         </div>
@@ -61,7 +57,7 @@ const Login = () => {
         <div className="bg-surface/60 backdrop-blur-xl border border-border/80 rounded-3xl p-8 shadow-2xl relative group overflow-hidden">
           {/* Subtle hover border effect */}
           <div className="absolute inset-0 border border-primary/20 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-          
+
           <h2 className="text-2xl font-bold text-text mb-2">Sign In</h2>
           <p className="text-muted text-xs mb-6">Enter your details to manage your Docker containers.</p>
 
@@ -76,20 +72,17 @@ const Login = () => {
             {/* Username/Email Input */}
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-muted uppercase tracking-wider">
-                Username or Email
+                Email
               </label>
               <div className="relative group/input">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted group-focus-within/input:text-primary transition-colors duration-200">
-                  <User className="w-4 h-4" />
-                </span>
                 <input
-                  type="text"
+                  type="email"
                   id="username"
                   required
                   value={form.username}
                   onChange={(e) => setForm({ ...form, username: e.target.value })}
-                  className="w-full bg-bg/50 border border-border rounded-xl pl-11 pr-4 py-3.5 text-sm text-text placeholder-muted/60 focus:outline-none focus:border-primary focus:bg-bg/90 transition-all duration-200 shadow-inner"
-                  placeholder="demo@dockmind.dev"
+                  className="w-full bg-bg/50 border border-border rounded-xl px-4 py-3.5 text-sm text-text placeholder-muted/60 focus:outline-none focus:border-primary focus:bg-bg/90 transition-all duration-200 shadow-inner"
+                  placeholder="you@example.com"
                 />
               </div>
             </div>
@@ -129,7 +122,7 @@ const Login = () => {
               type="submit"
               id="login-submit"
               disabled={loading}
-              className="w-full relative group/btn overflow-hidden py-3.5 bg-primary hover:bg-primary/95 text-white rounded-xl font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all duration-300 disabled:opacity-50 mt-4 active:scale-[0.98]"
+              className="w-full relative group/btn overflow-hidden py-3.5 bg-primary hover:opacity-95 text-white rounded-xl font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all duration-300 disabled:opacity-50 mt-4 active:scale-[0.98]"
             >
               <span className="relative z-10 flex items-center justify-center gap-2">
                 {loading ? 'Signing in...' : 'Sign In'}

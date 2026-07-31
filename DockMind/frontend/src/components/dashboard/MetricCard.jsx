@@ -1,23 +1,31 @@
 import React from 'react'
+import { ArrowUp, ArrowDown } from 'lucide-react'
 
 /**
  * MetricCard — displays a single Docker metric (CPU, Memory, Network)
  */
-const MetricCard = ({ title, value, unit, icon, trend, color = 'indigo' }) => {
-  const colorMap = {
-    indigo: 'from-indigo-500/20 to-indigo-500/5 border-indigo-500/30 text-indigo-400',
-    cyan: 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/30 text-cyan-400',
-    purple: 'from-purple-500/20 to-purple-500/5 border-purple-500/30 text-purple-400',
-    green: 'from-green-500/20 to-green-500/5 border-green-500/30 text-green-400',
-  }
+const COLOR_STYLES = {
+  primary: 'from-primary/20 to-primary/5 border-primary/30 text-primary',
+  success: 'from-success/20 to-success/5 border-success/30 text-success',
+  muted: 'from-muted/20 to-muted/5 border-muted/30 text-muted',
+  accent: 'from-accent/20 to-accent/5 border-accent/30 text-accent',
+}
+
+const MetricCard = ({ title, value, unit, icon: Icon, trend, color = 'primary' }) => {
+  const TrendIcon = trend >= 0 ? ArrowUp : ArrowDown
 
   return (
-    <div className={`relative overflow-hidden rounded-xl border bg-gradient-to-br p-5 ${colorMap[color]}`}>
+    <div className={`relative overflow-hidden rounded-xl border bg-gradient-to-br p-5 ${COLOR_STYLES[color]}`}>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-2xl">{icon}</span>
+        {Icon && <Icon size={22} strokeWidth={2} />}
         {trend !== undefined && (
-          <span className={`text-xs font-medium ${trend >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            {trend >= 0 ? '↑' : '↓'} {Math.abs(trend).toFixed(1)}%
+          <span
+            className={`inline-flex items-center gap-0.5 text-xs font-medium ${
+              trend >= 0 ? 'text-success' : 'text-danger'
+            }`}
+          >
+            <TrendIcon size={12} strokeWidth={2.5} />
+            {Math.abs(trend).toFixed(1)}%
           </span>
         )}
       </div>

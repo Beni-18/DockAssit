@@ -5,7 +5,7 @@ Stores user-defined reusable AI prompt templates that can be
 retrieved and replayed from the DockAssist interface.
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.sql import func
 from database.base import Base
 

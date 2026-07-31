@@ -1,4 +1,5 @@
 import React from 'react'
+import { Sun, Moon } from 'lucide-react'
 import Sidebar from '../../components/common/Sidebar'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
@@ -40,14 +41,22 @@ const Settings = () => {
               <button
                 id="theme-toggle"
                 onClick={toggleTheme}
-                className="px-4 py-2 text-sm rounded-lg border border-border hover:border-primary text-text transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-border hover:border-primary transition-colors"
               >
-                {theme === 'dark' ? '☀️ Switch to Light' : '🌙 Switch to Dark'}
+                {theme === 'dark' ? (
+                  <>
+                    <Sun size={14} strokeWidth={2} />
+                    Switch to Light
+                  </>
+                ) : (
+                  <>
+                    <Moon size={14} strokeWidth={2} />
+                    Switch to Dark
+                  </>
+                )}
               </button>
             </div>
           </section>
-
-
 
           {/* Ollama Config */}
           <section className="bg-surface border border-border rounded-xl p-6">
@@ -55,7 +64,7 @@ const Settings = () => {
             <div className="space-y-3 text-sm text-muted">
               <div className="flex justify-between">
                 <span>Ollama Model</span>
-                <span className="text-indigo-400 font-mono">llama3</span>
+                <span className="text-primary font-mono">qwen2.5:3b</span>
               </div>
               <div className="flex justify-between">
                 <span>Ollama Host</span>

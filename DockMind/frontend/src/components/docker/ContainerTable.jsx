@@ -1,17 +1,23 @@
 import React from 'react'
+import { Inbox, Play, Square, RotateCw, Trash2 } from 'lucide-react'
 import StatusBadge from '../common/StatusBadge'
 import { formatRelativeTime } from '../../utils/formatters'
 
 /**
  * ContainerTable — lists all Docker containers with status, actions
  */
-const ContainerTable = ({ containers, onAction }) => {
-  const actions = ['start', 'stop', 'restart', 'remove']
+const ACTIONS = [
+  { key: 'start', label: 'Start', Icon: Play },
+  { key: 'stop', label: 'Stop', Icon: Square },
+  { key: 'restart', label: 'Restart', Icon: RotateCw },
+  { key: 'remove', label: 'Remove', Icon: Trash2 },
+]
 
+const ContainerTable = ({ containers, onAction }) => {
   if (!containers?.length) {
     return (
-      <div className="text-center py-12 text-muted">
-        <p className="text-4xl mb-3">🐳</p>
+      <div className="flex flex-col items-center py-12 text-muted">
+        <Inbox size={36} strokeWidth={1.5} className="mb-3" />
         <p>No containers found.</p>
       </div>
     )
@@ -31,7 +37,7 @@ const ContainerTable = ({ containers, onAction }) => {
         </thead>
         <tbody className="divide-y divide-border">
           {containers.map((c) => (
-            <tr key={c.id} className="hover:bg-surface/50 transition-colors">
+            <tr key={c.id} className="hover:bg-bg/50 transition-colors">
               <td className="py-3 pr-4 font-mono font-medium">{c.name}</td>
               <td className="py-3 pr-4 text-muted">{c.image}</td>
               <td className="py-3 pr-4">
@@ -40,13 +46,15 @@ const ContainerTable = ({ containers, onAction }) => {
               <td className="py-3 pr-4 text-muted">{formatRelativeTime(c.created)}</td>
               <td className="py-3">
                 <div className="flex gap-2">
-                  {actions.map((action) => (
+                  {ACTIONS.map(({ key, label, Icon }) => (
                     <button
-                      key={action}
-                      onClick={() => onAction?.(action, c.id)}
-                      className="px-2 py-1 text-xs rounded-md bg-surface border border-border hover:border-primary hover:text-primary transition-colors capitalize"
+                      key={key}
+                      onClick={() => onAction?.(key, c.id)}
+                      title={label}
+                      className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-surface border border-border hover:border-primary hover:text-primary transition-colors"
                     >
-                      {action}
+                      <Icon size={13} strokeWidth={2} />
+                      {label}
                     </button>
                   ))}
                 </div>

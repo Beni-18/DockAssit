@@ -78,5 +78,15 @@ class Settings(BaseSettings):
         description="API key for the Google Gemini SDK. Obtain from Google AI Studio. Optional if using Ollama.",
     )
 
+    # ── Docker ────────────────────────────────────────────────────────────────
+    DOCKER_HOST: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional Docker daemon socket/URL override "
+            "(e.g. unix:///var/run/docker.sock or tcp://host:2375). "
+            "When unset, the SDK falls back to the standard environment-derived connection."
+        ),
+    )
+
 
 settings = Settings()

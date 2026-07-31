@@ -23,3 +23,18 @@ class CommandHistoryResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class FrequentCommandResponse(BaseModel):
+    """
+    A distinct (action, resource, target) combination the user has executed
+    before, aggregated from command history and ranked by frequency.
+    """
+
+    action: str
+    resource: str
+    target: str
+    count: int
+    last_executed_at: datetime
+
+    model_config = {"from_attributes": True}
