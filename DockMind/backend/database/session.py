@@ -1,3 +1,10 @@
+"""
+Database session dependency.
+
+Provides the `get_db` generator used as a FastAPI dependency to inject
+a scoped SQLAlchemy session into route handlers.
+"""
+
 from typing import Generator
 from database.database import SessionLocal
 

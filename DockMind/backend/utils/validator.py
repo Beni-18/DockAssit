@@ -1,3 +1,10 @@
+"""
+Input validation utilities.
+
+Provides reusable validators for Docker-related inputs such as
+action names, container names, and pagination parameters.
+"""
+
 import re
 from fastapi import HTTPException
 

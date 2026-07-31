@@ -1,137 +1,113 @@
-from fastapi import APIRouter, Depends
-from typing import List
+"""
+Docker API router.
 
+Exposes RESTful endpoints for querying and managing Docker resources.
+All routes delegate to ``services.docker_service`` which handles SDK
+interaction and exception translation.
+"""
+
+from fastapi import APIRouter, Depends, Query
+
+from middleware.auth_middleware import get_current_user
+from models.user import User
 from schemas.docker_schema import (
-    ContainerResponse,
+    ContainerActionResponse,
+    ContainerDetail,
+    ContainerLogsResponse,
     ContainerStatsResponse,
-    DockerActionRequest,
-    DockerActionResponse,
-    DockerInfoResponse,
-    ImageResponse,
-    VolumeResponse,
-    NetworkResponse,
-    RunContainerRequest,
-    DeployComposeRequest,
-    CreateNetworkRequest,
+    ContainerSummary,
+    ImageSummary,
+    NetworkSummary,
+    VolumeSummary,
 )
-from services.docker_service import DockerService
-from config.security import get_current_user_id
+from services import docker_service
 
-router = APIRouter()
-
-
-@router.get("/containers", response_model=List[ContainerResponse])
-def list_containers(_: int = Depends(get_current_user_id)):
-    """List all Docker containers (running + stopped)."""
-    return DockerService.list_containers()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
-@router.get("/containers/{container_id}", response_model=ContainerResponse)
-def get_container(container_id: str, _: int = Depends(get_current_user_id)):
-    """Get details of a specific container."""
-    return DockerService.get_container(container_id)
+# ---------------------------------------------------------------------------
+# Containers
+# ---------------------------------------------------------------------------
+
+@router.get("/containers", response_model=list[ContainerSummary])
+def list_containers(
+    all_containers: bool = Query(True, alias="all", description="Include stopped containers"),
+) -> list[dict]:
+    """List Docker containers."""
+    return docker_service.list_containers(all_containers=all_containers)
+
+
+@router.get("/containers/{container_id}", response_model=ContainerDetail)
+def get_container(container_id: str) -> dict:
+    """Get detailed information for a specific container."""
+    return docker_service.get_container(container_id)
 
 
 @router.get("/containers/{container_id}/stats", response_model=ContainerStatsResponse)
-def get_container_stats(container_id: str, _: int = Depends(get_current_user_id)):
-    """Get live CPU/memory/network stats for a container."""
-    return DockerService.get_stats(container_id)
+def get_container_stats(container_id: str) -> dict:
+    """Get a live snapshot of container resource usage."""
+    return docker_service.get_container_stats(container_id)
 
 
-@router.get("/containers/{container_id}/logs")
+@router.get("/containers/{container_id}/logs", response_model=ContainerLogsResponse)
 def get_container_logs(
     container_id: str,
-    tail: int = 100,
-    _: int = Depends(get_current_user_id),
-):
-    """Fetch the last N log lines from a container."""
-    return DockerService.get_logs(container_id, tail)
+    tail: int = Query(100, ge=1, le=1000, description="Number of log lines to return"),
+) -> dict:
+    """Fetch the tail of the container logs."""
+    return docker_service.get_container_logs(container_id, tail=tail)
 
 
-@router.post("/execute", response_model=DockerActionResponse)
-def execute_action(
-    payload: DockerActionRequest,
-    user_id: int = Depends(get_current_user_id),
-):
-    """Execute a Docker action (start, stop, restart, remove) on a container."""
-    return DockerService.execute_action(payload.action, payload.target, user_id)
+@router.post("/containers/{container_id}/start", response_model=ContainerActionResponse)
+def start_container(container_id: str) -> dict:
+    """Start a stopped container."""
+    return docker_service.start_container(container_id)
 
 
-@router.get("/info", response_model=DockerInfoResponse)
-def get_docker_info(_: int = Depends(get_current_user_id)):
-    """Get Docker system information."""
-    return DockerService.get_info()
+@router.post("/containers/{container_id}/stop", response_model=ContainerActionResponse)
+def stop_container(
+    container_id: str,
+    timeout: int = Query(10, ge=0, description="Seconds to wait before killing"),
+) -> dict:
+    """Stop a running container gracefully."""
+    return docker_service.stop_container(container_id, timeout=timeout)
 
 
-@router.get("/images", response_model=List[ImageResponse])
-def list_images(_: int = Depends(get_current_user_id)):
-    """List all Docker images."""
-    return DockerService.list_images()
+@router.post("/containers/{container_id}/restart", response_model=ContainerActionResponse)
+def restart_container(
+    container_id: str,
+    timeout: int = Query(10, ge=0, description="Seconds to wait before killing during restart"),
+) -> dict:
+    """Restart a container."""
+    return docker_service.restart_container(container_id, timeout=timeout)
 
 
-@router.get("/volumes", response_model=List[VolumeResponse])
-def list_volumes(_: int = Depends(get_current_user_id)):
-    """List all Docker volumes."""
-    return DockerService.list_volumes()
+@router.delete("/containers/{container_id}", response_model=ContainerActionResponse)
+def remove_container(
+    container_id: str,
+    force: bool = Query(False, description="Kill the container before removing if running"),
+) -> dict:
+    """Remove a container."""
+    return docker_service.remove_container(container_id, force=force)
 
 
-@router.get("/networks", response_model=List[NetworkResponse])
-def list_networks(_: int = Depends(get_current_user_id)):
-    """List all Docker networks."""
-    return DockerService.list_networks()
+# ---------------------------------------------------------------------------
+# Images, Volumes, Networks
+# ---------------------------------------------------------------------------
+
+@router.get("/images", response_model=list[ImageSummary])
+def list_images() -> list[dict]:
+    """List locally available Docker images."""
+    return docker_service.list_images()
 
 
-@router.post("/containers", response_model=DockerActionResponse)
-def run_container(
-    payload: RunContainerRequest,
-    _: int = Depends(get_current_user_id),
-):
-    """Run a new custom Docker container."""
-    res = DockerService.run_container(
-        image=payload.image,
-        name=payload.name,
-        ports=payload.ports,
-        environment=payload.environment,
-    )
-    return DockerActionResponse(
-        success=res["success"],
-        action=res["action"],
-        target=res["target"],
-        message=res["message"],
-    )
+@router.get("/volumes", response_model=list[VolumeSummary])
+def list_volumes() -> list[dict]:
+    """List Docker volumes."""
+    return docker_service.list_volumes()
 
 
-@router.post("/compose", response_model=DockerActionResponse)
-def deploy_compose(
-    payload: DeployComposeRequest,
-    _: int = Depends(get_current_user_id),
-):
-    """Deploy a multi-container Docker Compose stack."""
-    res = DockerService.deploy_compose(
-        stack_name=payload.stack_name,
-        compose_content=payload.compose_content,
-    )
-    return DockerActionResponse(
-        success=res["success"],
-        action=res["action"],
-        target=res["target"],
-        message=res["message"],
-    )
-
-
-@router.post("/networks", response_model=DockerActionResponse)
-def create_network(
-    payload: CreateNetworkRequest,
-    _: int = Depends(get_current_user_id),
-):
-    """Create a new Docker network."""
-    res = DockerService.create_network(
-        name=payload.name,
-        driver=payload.driver,
-    )
-    return DockerActionResponse(
-        success=res["success"],
-        action=res["action"],
-        target=res["target"],
-        message=res["message"],
-    )
+@router.get("/networks", response_model=list[NetworkSummary])
+def list_networks() -> list[dict]:
+    """List Docker networks."""
+    return docker_service.list_networks()

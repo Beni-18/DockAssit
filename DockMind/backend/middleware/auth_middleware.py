@@ -1,39 +1,38 @@
-from fastapi import Request, HTTPException
-from starlette.middleware.base import BaseHTTPMiddleware
-from config.security import decode_access_token
+"""
+Authentication middleware and dependencies.
 
-# Routes that don't need authentication
-PUBLIC_ROUTES = [
-    "/api/v1/auth/login",
-    "/api/v1/auth/register",
-    "/api/v1/auth/google",
-    "/health",
-    "/docs",
-    "/redoc",
-    "/openapi.json",
-]
+Provides dependency injection for FastAPI routes to easily retrieve
+the fully authenticated User object, leveraging the JWT utilities
+from ``config.security``.
+"""
+
+from fastapi import Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from config.security import get_current_user_id
+from database.database import get_db
+from models.user import User
 
 
-class AuthMiddleware(BaseHTTPMiddleware):
+def get_current_user(
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> User:
     """
-    Validates JWT token on protected routes before they reach the endpoint.
-    Note: For most cases, use the get_current_user_id dependency directly.
-    This middleware is an additional layer for early rejection.
+    FastAPI dependency that returns the authenticated User instance.
+
+    Reads and validates the JWT using ``get_current_user_id``, then queries
+    the database for the corresponding user.
+
+    Raises
+    ------
+    HTTPException (401)
+        If the token is invalid, expired, or the user no longer exists in the DB.
     """
-
-    async def dispatch(self, request: Request, call_next):
-        if any(request.url.path.startswith(route) for route in PUBLIC_ROUTES):
-            return await call_next(request)
-
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Missing authorization token")
-
-        token = auth_header.split(" ")[1]
-        try:
-            payload = decode_access_token(token)
-            request.state.user_id = payload.get("sub")
-        except HTTPException:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
-
-        return await call_next(request)
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="The user belonging to this token no longer exists.",
+        )
+    return user

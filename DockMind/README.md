@@ -54,7 +54,3 @@ npm run dev
 ```
 
 ---
-
-## 📄 License
-
-MIT License — Built for Vibeathon Hackathon 2026

@@ -1,58 +1,182 @@
-from datetime import datetime, timedelta
+"""
+Security utilities — password hashing and JWT token management.
+
+This module is the single source of truth for all cryptographic operations
+in DockAssist. It is intentionally free of FastAPI-specific dependencies
+so that it can be used by any layer of the application (auth service,
+middleware, CLI scripts) without side effects.
+
+Usage::
+
+    from config.security import (
+        hash_password,
+        verify_password,
+        create_access_token,
+        verify_access_token,
+    )
+"""
+
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from jose import JWTError, jwt
-import bcrypt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import ExpiredSignatureError, JWTError, jwt
+from passlib.context import CryptContext
 
 from config.config import settings
 
-# JWT Bearer scheme
-bearer_scheme = HTTPBearer()
+# ---------------------------------------------------------------------------
+# Password hashing context
+# ---------------------------------------------------------------------------
+# ``deprecated="auto"`` automatically re-hashes passwords that were stored
+# with an older/weaker scheme whenever they are verified — zero downtime
+# migration path if the scheme ever changes.
+# ---------------------------------------------------------------------------
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
-    """Hash a plain-text password using bcrypt."""
-    salt = bcrypt.gensalt()
-    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
+    """
+    Return a bcrypt hash of ``password``.
+
+    The resulting string is safe to persist directly in the database.
+    Plain text is never returned or logged.
+    """
+    return _pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a plain-text password against its bcrypt hash."""
-    try:
-        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
-    except Exception:
-        return False
+    """
+    Return ``True`` if ``plain_password`` matches ``hashed_password``.
+
+    Uses a constant-time comparison internally to prevent timing attacks.
+    """
+    return _pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """Create a signed JWT access token."""
-    to_encode = data.copy()
-    expire = datetime.utcnow() + (
-        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+def create_access_token(
+    data: dict,
+    expires_delta: Optional[timedelta] = None,
+) -> str:
+    """
+    Build and sign a JWT access token.
+
+    Parameters
+    ----------
+    data:
+        Arbitrary claims to embed in the token payload
+        (e.g. {"sub": "42"}).
+    expires_delta:
+        Optional custom lifetime. Falls back to
+        ACCESS_TOKEN_EXPIRE_MINUTES when omitted.
+
+    Returns
+    -------
+    str
+        A signed JWT string.
+    """
+    payload = data.copy()
+
+    expire = datetime.now(timezone.utc) + (
+        expires_delta
+        if expires_delta is not None
+        else timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+    payload["exp"] = expire
+
+    return jwt.encode(
+        payload,
+        settings.JWT_SECRET,
+        algorithm=settings.JWT_ALGORITHM,
+    )
 
 
-def decode_access_token(token: str) -> dict:
-    """Decode and validate a JWT token."""
+def verify_access_token(token: str) -> dict:
+    """
+    Decode and validate a JWT access token.
+
+    Parameters
+    ----------
+    token:
+        The raw JWT string received from the client.
+
+    Returns
+    -------
+    dict
+        The decoded payload.
+
+    Raises
+    ------
+    HTTPException (401)
+        If the token is expired, malformed, or invalid.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload: dict = jwt.decode(
+            token,
+            settings.JWT_SECRET,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
         return payload
-    except JWTError:
+
+    except ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
+            detail="Token has expired",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    except JWTError:
+        raise credentials_exception
 
-def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)) -> int:
-    """FastAPI dependency — extracts user ID from JWT token."""
-    payload = decode_access_token(credentials.credentials)
-    user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid token payload")
-    return int(user_id)
+
+# ---------------------------------------------------------------------------
+# FastAPI dependency — Bearer token extraction
+# ---------------------------------------------------------------------------
+
+_bearer_scheme = HTTPBearer()
+
+
+def get_current_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+) -> int:
+    """
+    Extract and validate the authenticated user's ID from the JWT.
+
+    Returns
+    -------
+    int
+        User ID stored in the "sub" claim.
+
+    Raises
+    ------
+    HTTPException (401)
+        If the token is invalid or missing a valid "sub" claim.
+    """
+    payload = verify_access_token(credentials.credentials)
+
+    subject = payload.get("sub")
+
+    if subject is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is missing the 'sub' claim",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        return int(subject)
+
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID in token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
