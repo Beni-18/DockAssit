@@ -80,27 +80,30 @@ def _validate_intent(data: dict) -> DockerIntent:
         ) from exc
 
 
-async def interpret_prompt(prompt: str) -> DockerIntent:
+async def _ollama_generate_json(prompt: str, system_prompt: str) -> dict:
     """
-    Send a natural language prompt to Ollama and return a validated Docker intent.
+    Send ``prompt`` to Ollama under ``system_prompt`` and return the parsed
+    JSON response body. Shared by ``interpret_prompt`` (fixed schema) and
+    ``query_json`` (caller-supplied schema/grounding).
 
     Raises
     ------
     HTTPException (503)
         If the Ollama API is unreachable or returns an error.
     HTTPException (422)
-        If the Ollama response cannot be parsed or validated.
+        If the response cannot be parsed as JSON.
     """
-    logger.info("Sending prompt to Ollama (%s): %s", settings.OLLAMA_MODEL, prompt[:100])
-    
     payload = {
         "model": settings.OLLAMA_MODEL,
         "prompt": prompt,
-        "system": _SYSTEM_PROMPT,
+        "system": system_prompt,
         "stream": False,
         "format": "json",
+        # Low temperature: this is a structured-extraction task, not creative
+        # writing — the same request should classify the same way every time.
+        "options": {"temperature": 0.1, "top_p": 0.9},
     }
-    
+
     url = f"{settings.OLLAMA_URL.rstrip('/')}/api/generate"
 
     try:
@@ -125,7 +128,7 @@ async def interpret_prompt(prompt: str) -> DockerIntent:
     logger.debug("Ollama raw response: %s", raw_text)
 
     try:
-        parsed = json.loads(raw_text)
+        return json.loads(raw_text)
     except JSONDecodeError as exc:
         logger.error("Ollama returned invalid JSON: %s", raw_text)
         raise HTTPException(
@@ -133,6 +136,32 @@ async def interpret_prompt(prompt: str) -> DockerIntent:
             detail="AI returned a response that could not be parsed as valid JSON.",
         ) from exc
 
+
+async def query_json(prompt: str, system_prompt: str) -> dict:
+    """
+    Low-level entry point for callers that need a custom system prompt and
+    schema rather than the fixed ``DockerIntent`` contract — e.g.
+    ``chatbot_service``, which grounds the prompt in live Docker state and
+    expects a ``targets`` list instead of a single ``target`` string.
+    """
+    logger.info("Sending grounded prompt to Ollama (%s): %s", settings.OLLAMA_MODEL, prompt[:100])
+    return await _ollama_generate_json(prompt, system_prompt)
+
+
+async def interpret_prompt(prompt: str) -> DockerIntent:
+    """
+    Send a natural language prompt to Ollama and return a validated Docker intent.
+
+    Raises
+    ------
+    HTTPException (503)
+        If the Ollama API is unreachable or returns an error.
+    HTTPException (422)
+        If the Ollama response cannot be parsed or validated.
+    """
+    logger.info("Sending prompt to Ollama (%s): %s", settings.OLLAMA_MODEL, prompt[:100])
+
+    parsed = await _ollama_generate_json(prompt, _SYSTEM_PROMPT)
     intent = _validate_intent(parsed)
 
     logger.info(
