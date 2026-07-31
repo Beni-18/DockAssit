@@ -1,13 +1,13 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { login } from '../../services/auth'
+import { register } from '../../services/auth'
 import { useAuth } from '../../context/AuthContext'
-import { User, Lock, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react'
+import { User, Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react'
 
-const Login = () => {
+const Register = () => {
   const navigate = useNavigate()
   const { login: setAuth } = useAuth()
-  const [form, setForm] = useState({ username: '', password: '' })
+  const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -17,12 +17,12 @@ const Login = () => {
     setLoading(true)
     setError(null)
     try {
-      const data = await login(form.username, form.password)
+      const data = await register(form.name, form.email, form.password)
       setAuth(data.access_token, data.user)
       navigate('/dashboard')
     } catch (err) {
       const detail = err.response?.data?.detail
-      let msg = 'Login failed. Please check your credentials.'
+      let msg = 'Registration failed. Please try again.'
       if (typeof detail === 'string') {
         msg = detail
       } else if (Array.isArray(detail)) {
@@ -62,8 +62,8 @@ const Login = () => {
           {/* Subtle hover border effect */}
           <div className="absolute inset-0 border border-primary/20 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
           
-          <h2 className="text-2xl font-bold text-text mb-2">Sign In</h2>
-          <p className="text-muted text-xs mb-6">Enter your details to manage your Docker containers.</p>
+          <h2 className="text-2xl font-bold text-text mb-2">Create Account</h2>
+          <p className="text-muted text-xs mb-6">Register to monitor and control your Docker dashboard.</p>
 
           {error && (
             <div className="mb-5 p-3.5 rounded-xl bg-danger/10 border border-danger/30 text-danger text-sm flex items-start gap-2.5">
@@ -73,10 +73,10 @@ const Login = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Username/Email Input */}
+            {/* Full Name Input */}
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-muted uppercase tracking-wider">
-                Username or Email
+                Full Name
               </label>
               <div className="relative group/input">
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted group-focus-within/input:text-primary transition-colors duration-200">
@@ -84,10 +84,31 @@ const Login = () => {
                 </span>
                 <input
                   type="text"
-                  id="username"
+                  id="name"
                   required
-                  value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full bg-bg/50 border border-border rounded-xl pl-11 pr-4 py-3.5 text-sm text-text placeholder-muted/60 focus:outline-none focus:border-primary focus:bg-bg/90 transition-all duration-200 shadow-inner"
+                  placeholder="Demo User"
+                />
+              </div>
+            </div>
+
+            {/* Email Input */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-muted uppercase tracking-wider">
+                Email Address
+              </label>
+              <div className="relative group/input">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted group-focus-within/input:text-primary transition-colors duration-200">
+                  <Mail className="w-4 h-4" />
+                </span>
+                <input
+                  type="email"
+                  id="email"
+                  required
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
                   className="w-full bg-bg/50 border border-border rounded-xl pl-11 pr-4 py-3.5 text-sm text-text placeholder-muted/60 focus:outline-none focus:border-primary focus:bg-bg/90 transition-all duration-200 shadow-inner"
                   placeholder="demo@dockmind.dev"
                 />
@@ -96,11 +117,9 @@ const Login = () => {
 
             {/* Password Input */}
             <div className="space-y-1.5">
-              <div className="flex justify-between items-center">
-                <label className="block text-xs font-semibold text-muted uppercase tracking-wider">
-                  Password
-                </label>
-              </div>
+              <label className="block text-xs font-semibold text-muted uppercase tracking-wider">
+                Password
+              </label>
               <div className="relative group/input">
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted group-focus-within/input:text-primary transition-colors duration-200">
                   <Lock className="w-4 h-4" />
@@ -127,21 +146,21 @@ const Login = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              id="login-submit"
+              id="register-submit"
               disabled={loading}
               className="w-full relative group/btn overflow-hidden py-3.5 bg-primary hover:bg-primary/95 text-white rounded-xl font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all duration-300 disabled:opacity-50 mt-4 active:scale-[0.98]"
             >
               <span className="relative z-10 flex items-center justify-center gap-2">
-                {loading ? 'Signing in...' : 'Sign In'}
+                {loading ? 'Registering...' : 'Register'}
                 {!loading && <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform duration-200" />}
               </span>
             </button>
 
-            {/* Link to Register */}
+            {/* Back to Login Link */}
             <p className="text-center text-xs text-muted mt-4">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-primary hover:underline font-semibold">
-                Sign Up
+              Already have an account?{' '}
+              <Link to="/login" className="text-primary hover:underline font-semibold">
+                Sign In
               </Link>
             </p>
           </form>
@@ -151,4 +170,4 @@ const Login = () => {
   )
 }
 
-export default Login
+export default Register

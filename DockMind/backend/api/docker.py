@@ -7,6 +7,12 @@ from schemas.docker_schema import (
     DockerActionRequest,
     DockerActionResponse,
     DockerInfoResponse,
+    ImageResponse,
+    VolumeResponse,
+    NetworkResponse,
+    RunContainerRequest,
+    DeployComposeRequest,
+    CreateNetworkRequest,
 )
 from services.docker_service import DockerService
 from config.security import get_current_user_id
@@ -55,3 +61,77 @@ def execute_action(
 def get_docker_info(_: int = Depends(get_current_user_id)):
     """Get Docker system information."""
     return DockerService.get_info()
+
+
+@router.get("/images", response_model=List[ImageResponse])
+def list_images(_: int = Depends(get_current_user_id)):
+    """List all Docker images."""
+    return DockerService.list_images()
+
+
+@router.get("/volumes", response_model=List[VolumeResponse])
+def list_volumes(_: int = Depends(get_current_user_id)):
+    """List all Docker volumes."""
+    return DockerService.list_volumes()
+
+
+@router.get("/networks", response_model=List[NetworkResponse])
+def list_networks(_: int = Depends(get_current_user_id)):
+    """List all Docker networks."""
+    return DockerService.list_networks()
+
+
+@router.post("/containers", response_model=DockerActionResponse)
+def run_container(
+    payload: RunContainerRequest,
+    _: int = Depends(get_current_user_id),
+):
+    """Run a new custom Docker container."""
+    res = DockerService.run_container(
+        image=payload.image,
+        name=payload.name,
+        ports=payload.ports,
+        environment=payload.environment,
+    )
+    return DockerActionResponse(
+        success=res["success"],
+        action=res["action"],
+        target=res["target"],
+        message=res["message"],
+    )
+
+
+@router.post("/compose", response_model=DockerActionResponse)
+def deploy_compose(
+    payload: DeployComposeRequest,
+    _: int = Depends(get_current_user_id),
+):
+    """Deploy a multi-container Docker Compose stack."""
+    res = DockerService.deploy_compose(
+        stack_name=payload.stack_name,
+        compose_content=payload.compose_content,
+    )
+    return DockerActionResponse(
+        success=res["success"],
+        action=res["action"],
+        target=res["target"],
+        message=res["message"],
+    )
+
+
+@router.post("/networks", response_model=DockerActionResponse)
+def create_network(
+    payload: CreateNetworkRequest,
+    _: int = Depends(get_current_user_id),
+):
+    """Create a new Docker network."""
+    res = DockerService.create_network(
+        name=payload.name,
+        driver=payload.driver,
+    )
+    return DockerActionResponse(
+        success=res["success"],
+        action=res["action"],
+        target=res["target"],
+        message=res["message"],
+    )

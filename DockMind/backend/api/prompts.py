@@ -10,7 +10,7 @@ from config.security import get_current_user_id
 router = APIRouter()
 
 
-@router.get("/", response_model=List[PromptResponse])
+@router.get("", response_model=List[PromptResponse])
 def get_prompts(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
@@ -19,7 +19,7 @@ def get_prompts(
     return PromptService.get_user_prompts(db, user_id)
 
 
-@router.post("/", response_model=PromptResponse, status_code=201)
+@router.post("", response_model=PromptResponse, status_code=201)
 def save_prompt(
     payload: SavePromptRequest,
     user_id: int = Depends(get_current_user_id),

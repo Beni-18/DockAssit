@@ -40,12 +40,14 @@ const Settings = () => {
               <button
                 id="theme-toggle"
                 onClick={toggleTheme}
-                className="px-4 py-2 text-sm rounded-lg border border-border hover:border-primary transition-colors"
+                className="px-4 py-2 text-sm rounded-lg border border-border hover:border-primary text-text transition-colors"
               >
                 {theme === 'dark' ? '☀️ Switch to Light' : '🌙 Switch to Dark'}
               </button>
             </div>
           </section>
+
+
 
           {/* Ollama Config */}
           <section className="bg-surface border border-border rounded-xl p-6">

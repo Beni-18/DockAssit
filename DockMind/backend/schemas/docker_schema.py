@@ -8,6 +8,23 @@ class DockerActionRequest(BaseModel):
     target: str   # container ID or name
 
 
+class RunContainerRequest(BaseModel):
+    image: str
+    name: Optional[str] = None
+    ports: Optional[str] = None
+    environment: Optional[str] = None
+
+
+class DeployComposeRequest(BaseModel):
+    stack_name: str
+    compose_content: str
+
+
+class CreateNetworkRequest(BaseModel):
+    name: str
+    driver: Optional[str] = "bridge"
+
+
 class ContainerResponse(BaseModel):
     id: str
     name: str
@@ -42,3 +59,26 @@ class DockerActionResponse(BaseModel):
     action: str
     target: str
     message: Optional[str] = None
+
+
+class ImageResponse(BaseModel):
+    id: str
+    tags: List[str]
+    size: int
+    created: Optional[str] = None
+
+
+class VolumeResponse(BaseModel):
+    name: str
+    driver: str
+    scope: str
+    size: Optional[str] = "—"
+    created: Optional[str] = "—"
+
+
+class NetworkResponse(BaseModel):
+    id: str
+    name: str
+    driver: str
+    scope: str
+    created: Optional[str] = "—"

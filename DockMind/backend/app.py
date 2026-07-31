@@ -3,6 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api import auth, docker, ai, history, prompts
 from config.config import settings
+from database.init_db import init_db
+
+# Initialize database
+init_db()
 
 app = FastAPI(
     title="DockMind API",

@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # Database
-    DATABASE_URL: str = "postgresql://dockmind:dockmind@localhost:5432/dockmind"
+    DATABASE_URL: str = "sqlite:///./dockmind.db"
 
     # JWT
     SECRET_KEY: str = "change-me-in-production"

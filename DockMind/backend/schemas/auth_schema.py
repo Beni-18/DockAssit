@@ -4,7 +4,7 @@ from datetime import datetime
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
