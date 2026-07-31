@@ -1,3 +1,10 @@
+"""
+Structured application logger.
+
+Configures a consistent log format for the entire application.
+Import and use `logger` from this module in every service or utility.
+"""
+
 import logging
 import sys
 

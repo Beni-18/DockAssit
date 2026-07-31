@@ -1,3 +1,10 @@
+"""
+Docker API request and response schemas.
+
+Pydantic v2 models for container listings, runtime stats,
+action requests, and Docker system information.
+"""
+
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime

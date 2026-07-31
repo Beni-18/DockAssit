@@ -1,3 +1,10 @@
+"""
+ExecutionLog SQLAlchemy model.
+
+Records low-level Docker SDK execution results, linking each
+operation back to a user and optionally to a CommandHistory entry.
+"""
+
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.sql import func
 from database.database import Base

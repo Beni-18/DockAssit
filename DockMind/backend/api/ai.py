@@ -1,3 +1,10 @@
+"""
+AI API router.
+
+Exposes endpoints for processing natural language prompts into Docker operations
+via the configured AI provider (Gemini).
+"""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 

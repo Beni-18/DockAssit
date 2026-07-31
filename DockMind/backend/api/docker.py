@@ -1,3 +1,10 @@
+"""
+Docker API router.
+
+Exposes endpoints for listing containers, retrieving stats and logs,
+executing lifecycle actions, and querying Docker system information.
+"""
+
 from fastapi import APIRouter, Depends
 from typing import List
 

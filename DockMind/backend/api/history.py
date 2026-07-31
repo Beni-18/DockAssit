@@ -1,3 +1,10 @@
+"""
+Command history API router.
+
+Provides paginated access to a user's executed command history
+and allows deletion of individual history entries.
+"""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List

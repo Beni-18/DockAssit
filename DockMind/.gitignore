@@ -1,4 +1,4 @@
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.pyo
@@ -9,43 +9,55 @@ __pycache__/
 dist/
 build/
 *.spec
+
+# ── Virtual Environments ──────────────────────────────────────────────────────
 .venv/
 venv/
 env/
 ENV/
 
-# Environment variables
+# ── Environment Variables ─────────────────────────────────────────────────────
 .env
 .env.*
+.env.local
 !.env.example
 
-# Node / Frontend
-node_modules/
-dist/
-.cache/
-.parcel-cache/
-*.local
-
-# IDEs
+# ── IDEs & Editors ────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# ── OS Files ──────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Logs
+# ── Testing & Coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+*.cover
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
 *.log
 logs/
 
-# Database
+# ── Database ──────────────────────────────────────────────────────────────────
 *.db
 *.sqlite3
 
-# JWT / Secrets
+# ── Secrets & Certificates ────────────────────────────────────────────────────
 *.pem
 *.key
 *.cert
 
-# Docker
-.dockerignore
+# ── Node / Frontend ───────────────────────────────────────────────────────────
+node_modules/
+.cache/
+.parcel-cache/
+*.local
+
+# ── Alembic ───────────────────────────────────────────────────────────────────
+alembic/versions/*.pyc

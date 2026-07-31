@@ -1,3 +1,10 @@
+"""
+Saved prompt request and response schemas.
+
+Pydantic v2 models for creating, updating, and returning
+user-saved AI prompt templates.
+"""
+
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime

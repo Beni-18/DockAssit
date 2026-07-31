@@ -1,3 +1,10 @@
+"""
+Security utilities.
+
+Provides JWT token creation/decoding, password hashing/verification,
+and the `get_current_user_id` FastAPI dependency.
+"""
+
 from datetime import datetime, timedelta
 from typing import Optional
 

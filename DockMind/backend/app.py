@@ -1,3 +1,9 @@
+"""
+DockAssist application entry point.
+
+Initialises the FastAPI app, registers CORS middleware, and mounts all API routers.
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
