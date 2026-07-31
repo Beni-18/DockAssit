@@ -2,7 +2,7 @@
 AI request and response schemas.
 
 Pydantic v2 models that define the contract between the API layer
-and the AI service. The ``InterpretRequest`` / ``InterpretResponse``
+and the AI service. The ``InterpretRequest`` / ``DockerIntent``
 pair is used by the ``POST /api/v1/ai/interpret`` endpoint.
 """
 
@@ -33,9 +33,6 @@ class InterpretRequest(BaseModel):
 class DockerIntent(BaseModel):
     """
     Structured Docker intent parsed from a natural language prompt.
-
-    All three fields are required in the AI response; optional metadata
-    fields (``confidence``, ``message``) may or may not be present.
     """
 
     action: str = Field(
@@ -51,25 +48,5 @@ class DockerIntent(BaseModel):
     target: str = Field(
         ...,
         description="Name or ID of the target resource.",
-        examples=["redis"],
-    )
-    confidence: Optional[float] = Field(
-        default=None,
-        ge=0.0,
-        le=1.0,
-        description="Model confidence score for the parsed intent (0.0 – 1.0).",
-    )
-    message: Optional[str] = Field(
-        default=None,
-        description="Optional human-readable explanation of the parsed intent.",
-    )
-
-
-class InterpretResponse(BaseModel):
-    """Response returned by ``POST /api/v1/ai/interpret``."""
-
-    intent: DockerIntent
-    raw_response: str = Field(
-        ...,
-        description="The raw JSON string returned by Gemini before parsing.",
+        examples=["nginx"],
     )

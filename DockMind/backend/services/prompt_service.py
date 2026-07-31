@@ -104,7 +104,7 @@ class PromptService:
 
         try:
             # 1. Interpret Intent
-            intent, _ = await ai_service.interpret_prompt(prompt_text)
+            intent = await ai_service.interpret_prompt(prompt_text)
             action = intent.action
             resource = intent.resource
             target = intent.target

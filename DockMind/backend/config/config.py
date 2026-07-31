@@ -12,6 +12,8 @@ Usage::
     print(settings.APP_NAME)
 """
 
+from typing import Optional
+
 from pydantic import Field, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -58,10 +60,22 @@ class Settings(BaseSettings):
         description="JWT access token lifetime in minutes. Defaults to 24 hours.",
     )
 
-    # ── Google Gemini API ─────────────────────────────────────────────────────
-    GEMINI_API_KEY: str = Field(
-        ...,
-        description="API key for the Google Gemini SDK. Obtain from Google AI Studio.",
+    # ── AI Configuration ──────────────────────────────────────────────────────
+    AI_PROVIDER: str = Field(
+        default="ollama",
+        description="The AI provider to use. 'ollama' or 'gemini'.",
+    )
+    OLLAMA_URL: str = Field(
+        default="http://localhost:11434",
+        description="The URL of the local Ollama instance.",
+    )
+    OLLAMA_MODEL: str = Field(
+        default="qwen2.5:3b",
+        description="The name of the Ollama model to use.",
+    )
+    GEMINI_API_KEY: Optional[str] = Field(
+        default=None,
+        description="API key for the Google Gemini SDK. Obtain from Google AI Studio. Optional if using Ollama.",
     )
 
 
