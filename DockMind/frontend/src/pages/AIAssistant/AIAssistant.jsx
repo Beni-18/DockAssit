@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import Sidebar from '../../components/common/Sidebar'
 import MessageContent from '../../components/common/MessageContent'
-import api from '../../services/api'
+import { useChat } from '../../context/ChatContext'
 import { Bot, User, Send, Sparkles, RefreshCw, Terminal } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
@@ -16,16 +16,8 @@ const SUGGESTED_PROMPTS = [
 
 const AIAssistant = () => {
   const [searchParams] = useSearchParams()
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'bot',
-      content: 'Hello! I am your AI assistant. How can I help you with your Docker environment today?',
-      timestamp: '10:30 AM',
-    },
-  ])
+  const { messages, loading, sendMessage, confirmAction, cancelAction, clearChat } = useChat()
   const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
@@ -33,80 +25,20 @@ const AIAssistant = () => {
     const command = searchParams.get('command')
     const container = searchParams.get('container')
     if (command === 'logs' && container) {
-      handleSend(`Show logs for container ${container}`)
+      sendMessage(`Show logs for container ${container}`)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const handleSend = async (textToSend, options = {}) => {
-    const { skipUserBubble = false, confirmed = false } = options
-    const prompt = textToSend || input
-    if (!prompt.trim()) return
-
-    if (!skipUserBubble) {
-      const userMsg = {
-        id: Date.now(),
-        sender: 'user',
-        content: prompt,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      }
-      setMessages(prev => [...prev, userMsg])
-    }
-    if (!textToSend) setInput('')
-    setLoading(true)
-
-    try {
-      const res = await api.post('/ai/execute', { prompt, confirmed })
-
-      const botMsg = {
-        id: Date.now() + 1,
-        sender: 'bot',
-        content: res.data.response || 'Action completed successfully.',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        action: res.data.action,
-        target: res.data.target,
-        success: res.data.success,
-        needsConfirmation: res.data.needs_confirmation,
-        confirmPrompt: res.data.needs_confirmation ? prompt : undefined,
-      }
-      setMessages(prev => [...prev, botMsg])
-    } catch (err) {
-      const errorMsg = {
-        id: Date.now() + 1,
-        sender: 'bot',
-        content: err.response?.data?.detail || 'Sorry, I encountered an error executing that command.',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        isError: true
-      }
-      setMessages(prev => [...prev, errorMsg])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const resolveConfirmation = (msgId) => {
-    setMessages(prev => prev.map(m => (m.id === msgId ? { ...m, needsConfirmation: false } : m)))
-  }
-
-  const handleConfirmAction = (msg) => {
-    resolveConfirmation(msg.id)
-    handleSend(msg.confirmPrompt, { skipUserBubble: true, confirmed: true })
-  }
-
-  const handleCancelAction = (msg) => {
-    resolveConfirmation(msg.id)
-    setMessages(prev => [
-      ...prev,
-      {
-        id: Date.now(),
-        sender: 'bot',
-        content: "Cancelled — nothing was changed.",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      },
-    ])
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!input.trim()) return
+    sendMessage(input)
+    setInput('')
   }
 
   return (
@@ -122,13 +54,8 @@ const AIAssistant = () => {
             </h2>
             <p className="text-xs text-muted">Ask anything about your Docker containers and infrastructure.</p>
           </div>
-          <button 
-            onClick={() => setMessages([{
-              id: 1,
-              sender: 'bot',
-              content: 'Hello! I am your AI assistant. How can I help you with your Docker environment today?',
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            }])}
+          <button
+            onClick={clearChat}
             className="p-2 text-muted hover:text-text border border-border hover:border-primary rounded-xl transition-all"
             title="Clear Chat"
           >
@@ -142,16 +69,16 @@ const AIAssistant = () => {
           <div className="flex-1 flex flex-col h-full bg-bg">
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {messages.map(msg => (
-                <div 
-                  key={msg.id} 
+                <div
+                  key={msg.id}
                   className={`flex gap-3 max-w-3xl ${
                     msg.sender === 'user' ? 'ml-auto flex-row-reverse' : ''
                   }`}
                 >
                   {/* Avatar */}
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0 shadow-sm border ${
-                    msg.sender === 'user' 
-                      ? 'bg-primary border-primary/20' 
+                    msg.sender === 'user'
+                      ? 'bg-primary border-primary/20'
                       : 'bg-surface border-border text-primary'
                   }`}>
                     {msg.sender === 'user' ? <User className="w-4.5 h-4.5" /> : <Bot className="w-4.5 h-4.5" />}
@@ -192,13 +119,13 @@ const AIAssistant = () => {
                       {msg.needsConfirmation && (
                         <div className="mt-3.5 pt-3 border-t border-border flex items-center gap-2">
                           <button
-                            onClick={() => handleConfirmAction(msg)}
+                            onClick={() => confirmAction(msg)}
                             className="px-3 py-1.5 text-xs font-semibold bg-danger text-white rounded-lg hover:opacity-90 transition-opacity"
                           >
                             Yes, proceed
                           </button>
                           <button
-                            onClick={() => handleCancelAction(msg)}
+                            onClick={() => cancelAction(msg)}
                             className="px-3 py-1.5 text-xs font-semibold border border-border text-muted hover:text-text rounded-lg transition-colors"
                           >
                             Cancel
@@ -212,7 +139,7 @@ const AIAssistant = () => {
                   </div>
                 </div>
               ))}
-              
+
               {loading && (
                 <div className="flex gap-3 max-w-lg">
                   <div className="w-8 h-8 rounded-xl bg-surface border border-border text-primary flex items-center justify-center shrink-0">
@@ -229,13 +156,7 @@ const AIAssistant = () => {
 
             {/* Input Box */}
             <div className="p-4 border-t border-border bg-surface">
-              <form 
-                onSubmit={e => {
-                  e.preventDefault()
-                  handleSend()
-                }}
-                className="flex gap-3"
-              >
+              <form onSubmit={handleSubmit} className="flex gap-3">
                 <input
                   type="text"
                   placeholder="Ask anything about Docker..."
@@ -265,7 +186,7 @@ const AIAssistant = () => {
               {SUGGESTED_PROMPTS.map((prompt, i) => (
                 <button
                   key={i}
-                  onClick={() => handleSend(prompt)}
+                  onClick={() => sendMessage(prompt)}
                   disabled={loading}
                   className="w-full text-left p-3 text-xs bg-surface border border-border rounded-xl text-text hover:border-primary transition-all duration-200 font-medium leading-relaxed block"
                 >

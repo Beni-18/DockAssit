@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Sidebar from '../../components/common/Sidebar'
 import api from '../../services/api'
+import { removeImage } from '../../services/docker'
 import { Disc, Trash2, Search, RefreshCw, Layers } from 'lucide-react'
 import { formatBytes, formatDate } from '../../utils/formatters'
 
@@ -28,7 +29,7 @@ const Images = () => {
   const handleDelete = async (id) => {
     if (confirm('Are you sure you want to delete this image?')) {
       try {
-        await api.post('/docker/execute', { action: 'remove_image', target: id })
+        await removeImage(id)
         setImages(images.filter(img => img.id !== id))
       } catch (e) {
         alert(e.response?.data?.detail || 'Failed to remove image')

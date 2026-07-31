@@ -28,9 +28,11 @@ export const googleLogin = async (googleToken) => {
   return response.data
 }
 
-// Logout — clear token from storage
+// Logout — clear token and any locally-persisted per-user data (e.g. chat
+// history) so the next person to log in on this browser starts clean
 export const logout = () => {
   localStorage.removeItem('access_token')
+  localStorage.removeItem('dockmind_chat_messages')
 }
 
 // Get current logged-in user profile

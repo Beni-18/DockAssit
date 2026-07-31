@@ -1,20 +1,16 @@
 import React, { useState, useEffect } from 'react'
 import Sidebar from '../../components/common/Sidebar'
 import useContainers from '../../hooks/useContainers'
-import { executeDockerAction, getContainerStats, runContainer, deployCompose } from '../../services/docker'
-import { 
-  Play, 
-  Square, 
-  RotateCw, 
-  Trash2, 
+import { executeDockerAction, getContainerStats } from '../../services/docker'
+import {
+  Play,
+  Square,
+  RotateCw,
+  Trash2,
   Pause as PauseIcon,
-  RefreshCw, 
-  Plus, 
+  RefreshCw,
   Search,
-  Eye,
-  X,
-  Layers,
-  Server
+  Eye
 } from 'lucide-react'
 
 // Hardcoded default fallback metadata to match screenshot
@@ -34,15 +30,6 @@ const Containers = () => {
   const [search, setSearch] = useState('')
   const [actionLoading, setActionLoading] = useState(null)
   const [statsMap, setStatsMap] = useState({})
-
-  // Run/Compose Wizard States
-  const [showWizard, setShowWizard] = useState(false)
-  const [wizardTab, setWizardTab] = useState('single') // 'single' | 'compose'
-  const [singleForm, setSingleForm] = useState({ image: '', name: '', ports: '', environment: '' })
-  const [composeForm, setComposeForm] = useState({ stackName: '', composeContent: '' })
-  const [wizardLoading, setWizardLoading] = useState(false)
-  const [wizardError, setWizardError] = useState(null)
-  const [wizardSuccess, setWizardSuccess] = useState(null)
 
   // Fetch real-time stats for running containers
   useEffect(() => {
@@ -135,68 +122,6 @@ const Containers = () => {
     }
   }
 
-  const handleSingleSubmit = async (e) => {
-    e.preventDefault()
-    if (!singleForm.image.trim()) {
-      setWizardError('Image is required.')
-      return
-    }
-    setWizardLoading(true)
-    setWizardError(null)
-    setWizardSuccess(null)
-    try {
-      const res = await runContainer(
-        singleForm.image,
-        singleForm.name || null,
-        singleForm.ports || null,
-        singleForm.environment || null
-      )
-      setWizardSuccess(res.message || 'Container started successfully.')
-      setTimeout(() => {
-        setShowWizard(false)
-        setSingleForm({ image: '', name: '', ports: '', environment: '' })
-        setWizardSuccess(null)
-        refetch()
-      }, 2000)
-    } catch (err) {
-      setWizardError(err.response?.data?.detail || 'Failed to start container.')
-    } finally {
-      setWizardLoading(false)
-    }
-  }
-
-  const handleComposeSubmit = async (e) => {
-    e.preventDefault()
-    if (!composeForm.stackName.trim()) {
-      setWizardError('Stack name is required.')
-      return
-    }
-    if (!composeForm.composeContent.trim()) {
-      setWizardError('Compose configuration is required.')
-      return
-    }
-    setWizardLoading(true)
-    setWizardError(null)
-    setWizardSuccess(null)
-    try {
-      const res = await deployCompose(
-        composeForm.stackName,
-        composeForm.composeContent
-      )
-      setWizardSuccess(res.message || 'Stack deployed successfully.')
-      setTimeout(() => {
-        setShowWizard(false)
-        setComposeForm({ stackName: '', composeContent: '' })
-        setWizardSuccess(null)
-        refetch()
-      }, 2000)
-    } catch (err) {
-      setWizardError(err.response?.data?.detail || 'Failed to deploy compose stack.')
-    } finally {
-      setWizardLoading(false)
-    }
-  }
-
   return (
     <div className="flex min-h-screen bg-bg">
       <Sidebar />
@@ -208,23 +133,12 @@ const Containers = () => {
             <p className="text-muted text-sm mt-1">Manage and control your Docker containers.</p>
           </div>
           <div className="flex items-center gap-3">
-            <button 
+            <button
               onClick={refetch}
               className="flex items-center gap-2 px-3.5 py-2 text-sm font-semibold text-text bg-surface border border-border rounded-xl hover:border-primary transition-all duration-200"
             >
               <RefreshCw className="w-4 h-4" />
               Refresh
-            </button>
-            <button 
-              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary/95 rounded-xl shadow-lg shadow-primary/10 transition-all duration-200"
-              onClick={() => {
-                setWizardError(null)
-                setWizardSuccess(null)
-                setShowWizard(true)
-              }}
-            >
-              <Plus className="w-4 h-4" />
-              Run New Container
             </button>
           </div>
         </div>
@@ -324,24 +238,22 @@ const Containers = () => {
                                   <Square className="w-4 h-4 fill-red-600" />
                                 </button>
                                 <button
-                                  onClick={() => handleAction('pause', c.id)}
-                                  disabled={actionLoading === c.id}
-                                  className="p-2 text-amber-600 hover:bg-amber-50 border border-transparent hover:border-amber-200 rounded-lg transition-all"
-                                  title="Pause"
+                                  disabled
+                                  className="p-2 text-muted opacity-40 cursor-not-allowed rounded-lg"
+                                  title="Pausing containers isn't supported yet"
                                 >
-                                  <PauseIcon className="w-4 h-4 fill-amber-600" />
+                                  <PauseIcon className="w-4 h-4" />
                                 </button>
                               </>
                             )}
 
                             {c.status === 'paused' && (
                               <button
-                                onClick={() => handleAction('unpause', c.id)}
-                                disabled={actionLoading === c.id}
-                                className="p-2 text-green-600 hover:bg-green-50 border border-transparent hover:border-green-200 rounded-lg transition-all"
-                                title="Unpause"
+                                disabled
+                                className="p-2 text-muted opacity-40 cursor-not-allowed rounded-lg"
+                                title="Unpausing containers isn't supported yet"
                               >
-                                <Play className="w-4 h-4 fill-green-600" />
+                                <Play className="w-4 h-4" />
                               </button>
                             )}
 
@@ -387,174 +299,6 @@ const Containers = () => {
             </div>
           )}
         </div>
-
-        {/* Wizard Modal */}
-        {showWizard && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-            <div className="bg-surface border border-border w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center px-6 py-4 border-b border-border bg-bg/50">
-                <div>
-                  <h3 className="font-bold text-text text-lg">Run New Container</h3>
-                  <p className="text-xs text-muted">Create a single service or combine multiple docker containers.</p>
-                </div>
-                <button
-                  onClick={() => setShowWizard(false)}
-                  className="p-1.5 rounded-lg border border-border hover:bg-bg text-muted hover:text-text transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Wizard Tabs */}
-              <div className="flex border-b border-border p-4 bg-bg/25 gap-2">
-                <button
-                  onClick={() => { setWizardTab('single'); setWizardError(null); setWizardSuccess(null); }}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold border transition-all ${
-                    wizardTab === 'single'
-                      ? 'bg-primary text-white border-primary shadow-sm shadow-primary/10'
-                      : 'bg-surface border-border text-muted hover:text-text hover:bg-bg/50'
-                  }`}
-                >
-                  <Server className="w-4 h-4" />
-                  Single Container
-                </button>
-                <button
-                  onClick={() => { setWizardTab('compose'); setWizardError(null); setWizardSuccess(null); }}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold border transition-all ${
-                    wizardTab === 'compose'
-                      ? 'bg-primary text-white border-primary shadow-sm shadow-primary/10'
-                      : 'bg-surface border-border text-muted hover:text-text hover:bg-bg/50'
-                  }`}
-                >
-                  <Layers className="w-4 h-4" />
-                  Combine Stack (Docker Compose)
-                </button>
-              </div>
-
-              {/* Modal Body / Forms */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                {wizardError && (
-                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
-                    {wizardError}
-                  </div>
-                )}
-                {wizardSuccess && (
-                  <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-xs font-semibold flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span>
-                    {wizardSuccess}
-                  </div>
-                )}
-
-                {wizardTab === 'single' ? (
-                  <form onSubmit={handleSingleSubmit} className="space-y-4 text-sm">
-                    <div>
-                      <label className="block text-xs font-semibold text-text uppercase tracking-wider mb-1.5">Docker Image *</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. nginx:alpine, redis:latest"
-                        value={singleForm.image}
-                        onChange={e => setSingleForm({ ...singleForm, image: e.target.value })}
-                        required
-                        className="w-full px-3.5 py-2.5 bg-bg/50 border border-border rounded-xl text-text placeholder-muted/60 focus:outline-none focus:border-primary focus:bg-surface transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-text uppercase tracking-wider mb-1.5">Container Name</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. my-nginx-web (optional)"
-                        value={singleForm.name}
-                        onChange={e => setSingleForm({ ...singleForm, name: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-bg/50 border border-border rounded-xl text-text placeholder-muted/60 focus:outline-none focus:border-primary focus:bg-surface transition-all"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-text uppercase tracking-wider mb-1.5">Ports mapping</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. 80:80 (optional)"
-                          value={singleForm.ports}
-                          onChange={e => setSingleForm({ ...singleForm, ports: e.target.value })}
-                          className="w-full px-3.5 py-2.5 bg-bg/50 border border-border rounded-xl text-text placeholder-muted/60 focus:outline-none focus:border-primary focus:bg-surface transition-all"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-text uppercase tracking-wider mb-1.5">Environment Variables</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. PORT=80,ENV=prod"
-                          value={singleForm.environment}
-                          onChange={e => setSingleForm({ ...singleForm, environment: e.target.value })}
-                          className="w-full px-3.5 py-2.5 bg-bg/50 border border-border rounded-xl text-text placeholder-muted/60 focus:outline-none focus:border-primary focus:bg-surface transition-all"
-                        />
-                      </div>
-                    </div>
-                    <div className="pt-4 border-t border-border flex justify-end gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowWizard(false)}
-                        className="px-4 py-2 border border-border rounded-xl text-xs font-semibold hover:bg-bg text-muted hover:text-text transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={wizardLoading}
-                        className="px-5 py-2 bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 disabled:opacity-50"
-                      >
-                        {wizardLoading ? 'Starting...' : 'Run Container'}
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <form onSubmit={handleComposeSubmit} className="space-y-4 text-sm">
-                    <div>
-                      <label className="block text-xs font-semibold text-text uppercase tracking-wider mb-1.5">Stack Name *</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. web-app-stack"
-                        value={composeForm.stackName}
-                        onChange={e => setComposeForm({ ...composeForm, stackName: e.target.value })}
-                        required
-                        className="w-full px-3.5 py-2.5 bg-bg/50 border border-border rounded-xl text-text placeholder-muted/60 focus:outline-none focus:border-primary focus:bg-surface transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-text uppercase tracking-wider mb-1.5">docker-compose.yml configuration *</label>
-                      <textarea
-                        rows={6}
-                        placeholder="services:&#10;  web:&#10;    image: nginx:alpine&#10;    ports:&#10;      - '80:80'&#10;  db:&#10;    image: mysql:latest"
-                        value={composeForm.composeContent}
-                        onChange={e => setComposeForm({ ...composeForm, composeContent: e.target.value })}
-                        required
-                        className="w-full px-3.5 py-2.5 bg-bg/50 border border-border rounded-xl text-text placeholder-muted/60 font-mono text-xs focus:outline-none focus:border-primary focus:bg-surface transition-all resize-none"
-                      />
-                    </div>
-                    <div className="pt-4 border-t border-border flex justify-end gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowWizard(false)}
-                        className="px-4 py-2 border border-border rounded-xl text-xs font-semibold hover:bg-bg text-muted hover:text-text transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={wizardLoading}
-                        className="px-5 py-2 bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 disabled:opacity-50"
-                      >
-                        {wizardLoading ? 'Deploying...' : 'Deploy Stack'}
-                      </button>
-                    </div>
-                  </form>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   )

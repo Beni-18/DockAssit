@@ -25,18 +25,7 @@ const Volumes = () => {
     fetchVolumes()
   }, [])
 
-  const handleDelete = async (name) => {
-    if (confirm(`Are you sure you want to delete volume ${name}?`)) {
-      try {
-        await api.post('/docker/execute', { action: 'remove_volume', target: name })
-        setVolumes(volumes.filter(vol => vol.name !== name))
-      } catch (e) {
-        alert(e.response?.data?.detail || 'Failed to remove volume')
-      }
-    }
-  }
-
-  const filteredVolumes = volumes.filter(vol => 
+  const filteredVolumes = volumes.filter(vol =>
     vol.name.toLowerCase().includes(search.toLowerCase()) || vol.driver.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -110,9 +99,9 @@ const Volumes = () => {
                       <td className="p-4">
                         <div className="flex items-center justify-center">
                           <button
-                            onClick={() => handleDelete(vol.name)}
-                            className="p-2 text-red-500 hover:bg-red-50 border border-transparent hover:border-red-100 rounded-lg transition-all"
-                            title="Delete Volume"
+                            disabled
+                            className="p-2 text-muted opacity-40 cursor-not-allowed rounded-lg"
+                            title="Removing volumes isn't supported yet"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
