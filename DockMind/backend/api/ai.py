@@ -1,30 +1,27 @@
 """
 AI API router.
 
-Exposes endpoints for processing natural language prompts into Docker operations
-via the configured AI provider (Gemini).
+Exposes endpoints for translating natural language instructions into
+structured Docker operations via the AI service. Does not execute the
+operations directly.
 """
 
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from fastapi import APIRouter
 
-from database.session import get_db
-from schemas.ai_schema import AIExecuteRequest, AIExecuteResponse
-from services.ai_service import AIService
-from services.history_service import HistoryService
-from config.security import get_current_user_id
+from schemas.ai_schema import InterpretRequest, InterpretResponse
+from services.ai_service import interpret_prompt
 
 router = APIRouter()
 
 
-@router.post("/execute", response_model=AIExecuteResponse)
-async def execute_ai_command(
-    payload: AIExecuteRequest,
-    user_id: int = Depends(get_current_user_id),
-    db: Session = Depends(get_db),
-):
+@router.post("/interpret", response_model=InterpretResponse)
+async def interpret_ai_command(payload: InterpretRequest) -> InterpretResponse:
     """
-    Process a natural language prompt through Ollama → parse Docker intent → execute → save history.
+    Process a natural language instruction and extract the Docker intent.
+    
+    This endpoint calls the configured AI model (Google Gemini) to parse
+    the user's request and returns a structured JSON intent representing the
+    desired Docker action. It does NOT execute the action.
     """
-    result = await AIService.process_prompt(payload.prompt, user_id, db)
-    return result
+    intent, raw_response = await interpret_prompt(payload.prompt)
+    return InterpretResponse(intent=intent, raw_response=raw_response)
