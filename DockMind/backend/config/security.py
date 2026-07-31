@@ -18,7 +18,8 @@ Usage::
 
 from datetime import datetime, timedelta, timezone
 
-from fastapi import HTTPException, status
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import ExpiredSignatureError, JWTError, jwt
 from passlib.context import CryptContext
 
@@ -124,3 +125,38 @@ def verify_access_token(token: str) -> dict:
         )
     except JWTError:
         raise credentials_exception
+
+
+# ---------------------------------------------------------------------------
+# FastAPI dependency — Bearer token extraction
+# ---------------------------------------------------------------------------
+# Placed here (rather than in an auth module) because every protected router
+# in the project already imports it from config.security. Moving it would
+# require modifying all five existing router files.
+# ---------------------------------------------------------------------------
+_bearer_scheme = HTTPBearer()
+
+
+def get_current_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+) -> int:
+    """
+    FastAPI dependency that extracts and validates the user ID from a Bearer token.
+
+    Inject via ``Depends(get_current_user_id)`` in any protected route handler.
+
+    Raises
+    ------
+    HTTPException (401)
+        If the token is missing, malformed, expired, or does not contain a
+        valid ``sub`` claim.
+    """
+    payload = verify_access_token(credentials.credentials)
+    subject = payload.get("sub")
+    if not subject:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is missing the 'sub' claim",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return int(subject)
