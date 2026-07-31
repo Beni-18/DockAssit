@@ -1,41 +1,68 @@
 """
-Application settings.
+Centralised application configuration.
 
-Loads and validates all environment variables using pydantic-settings.
-Import the `settings` singleton throughout the application.
+All environment variables are loaded from a ``.env`` file and validated by
+pydantic-settings at startup. Fail-fast on missing required values (secrets)
+prevents the application from booting with an insecure configuration.
+
+Usage::
+
+    from config.config import settings
+
+    print(settings.APP_NAME)
 """
 
-from pydantic_settings import BaseSettings
-from typing import List
+from pydantic import Field, PostgresDsn
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # App
-    APP_NAME: str = "DockMind"
-    DEBUG: bool = False
+    """
+    Application-wide settings validated against the process environment.
 
-    # Database
-    DATABASE_URL: str = "postgresql://dockmind:dockmind@localhost:5432/dockmind"
+    Required secrets (``JWT_SECRET``, ``GEMINI_API_KEY``, ``DATABASE_URL``)
+    have no default values — the application will refuse to start if they are
+    absent, which is the correct behaviour for a production service.
+    """
 
-    # JWT
-    SECRET_KEY: str = "change-me-in-production"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore",         # silently ignore any unexpected env vars
+    )
 
-    # Ollama
-    OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "llama3"
+    # ── Application ───────────────────────────────────────────────────────────
+    APP_NAME: str = Field(default="DockAssist", description="Human-readable application name.")
+    APP_VERSION: str = Field(default="1.0.0", description="Semantic version string.")
+    ENVIRONMENT: str = Field(default="development", description="Runtime environment (development | staging | production).")
 
-    # CORS
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+    # ── Database ──────────────────────────────────────────────────────────────
+    DATABASE_URL: PostgresDsn = Field(
+        ...,
+        description="Full PostgreSQL connection string, e.g. postgresql://user:pass@host:5432/db.",
+    )
 
-    # Google OAuth (optional)
-    GOOGLE_CLIENT_ID: str = ""
-    GOOGLE_CLIENT_SECRET: str = ""
+    # ── JWT Authentication ────────────────────────────────────────────────────
+    JWT_SECRET: str = Field(
+        ...,
+        description="Secret key used to sign and verify JWT tokens. Must be strong and kept private.",
+    )
+    JWT_ALGORITHM: str = Field(
+        default="HS256",
+        description="Algorithm used for JWT signing (e.g. HS256, RS256).",
+    )
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=1440,
+        ge=1,
+        description="JWT access token lifetime in minutes. Defaults to 24 hours.",
+    )
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    # ── Google Gemini API ─────────────────────────────────────────────────────
+    GEMINI_API_KEY: str = Field(
+        ...,
+        description="API key for the Google Gemini SDK. Obtain from Google AI Studio.",
+    )
 
 
 settings = Settings()
