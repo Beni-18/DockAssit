@@ -1,3 +1,11 @@
+"""
+AI orchestration service.
+
+Coordinates the full pipeline: receive a natural language prompt,
+call the AI provider, parse Docker intent, execute the action,
+and persist the result in command history.
+"""
+
 import json
 import httpx
 from pathlib import Path

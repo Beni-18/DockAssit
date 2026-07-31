@@ -1,3 +1,10 @@
+"""
+Application settings.
+
+Loads and validates all environment variables using pydantic-settings.
+Import the `settings` singleton throughout the application.
+"""
+
 from pydantic_settings import BaseSettings
 from typing import List
 

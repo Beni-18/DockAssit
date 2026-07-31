@@ -1,3 +1,10 @@
+"""
+Saved prompt service.
+
+Manages the full lifecycle of user-saved AI prompt templates —
+create, read, update, and delete — scoped to the owning user.
+"""
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional

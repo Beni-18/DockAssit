@@ -1,3 +1,10 @@
+"""
+Authentication service.
+
+Handles user login, registration, and profile retrieval.
+Delegates password hashing and JWT creation to the security module.
+"""
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 

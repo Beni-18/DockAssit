@@ -1,3 +1,11 @@
+"""
+Docker service.
+
+Wraps the Docker SDK to provide container lifecycle management,
+stats collection, log retrieval, and system information queries.
+All operations go through the Docker daemon socket — no shell subprocess.
+"""
+
 import docker
 from fastapi import HTTPException
 from typing import List

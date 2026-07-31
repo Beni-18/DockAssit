@@ -1,3 +1,10 @@
+"""
+Shared utility helpers.
+
+General-purpose formatting functions used across the application,
+including byte formatting, uptime calculation, and string truncation.
+"""
+
 from datetime import datetime
 
 

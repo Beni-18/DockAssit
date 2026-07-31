@@ -1,3 +1,9 @@
+"""
+Saved prompts API router.
+
+Exposes CRUD endpoints for managing a user's saved prompt templates.
+"""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List

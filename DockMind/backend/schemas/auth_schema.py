@@ -1,3 +1,10 @@
+"""
+Authentication request and response schemas.
+
+Pydantic v2 models for login, registration, token issuance,
+and the current-user profile response.
+"""
+
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime

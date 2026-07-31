@@ -1,3 +1,10 @@
+"""
+AI request and response schemas.
+
+Pydantic v2 models for the AI execution endpoint — covering
+inbound prompts, parsed intent, and structured response payloads.
+"""
+
 from pydantic import BaseModel
 from typing import Optional
 

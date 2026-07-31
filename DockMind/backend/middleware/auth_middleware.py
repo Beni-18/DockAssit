@@ -1,3 +1,10 @@
+"""
+JWT authentication middleware.
+
+Validates Bearer tokens on all protected routes before they reach
+the endpoint handler. Public paths are explicitly whitelisted.
+"""
+
 from fastapi import Request, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from config.security import decode_access_token

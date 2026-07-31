@@ -1,3 +1,10 @@
+"""
+Command history service.
+
+Persists and retrieves user command history records,
+providing the audit trail for all AI-driven Docker operations.
+"""
+
 from sqlalchemy.orm import Session
 from typing import Optional, List
 

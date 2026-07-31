@@ -1,3 +1,10 @@
+"""
+CommandHistory SQLAlchemy model.
+
+Persists a log of every AI-interpreted Docker command executed by users,
+including the parsed action, target, outcome, and any error message.
+"""
+
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.sql import func
 from database.database import Base

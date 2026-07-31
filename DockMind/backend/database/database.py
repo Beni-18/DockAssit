@@ -1,3 +1,10 @@
+"""
+SQLAlchemy database engine and declarative base.
+
+Provides the engine, SessionLocal factory, and the Base class
+used by all ORM models.
+"""
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
