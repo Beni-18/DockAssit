@@ -1,0 +1,162 @@
+{
+  "info": {
+    "name": "DockMind API",
+    "description": "Complete API collection for DockMind – AI Powered Docker Health Dashboard",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000/api/v1" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:8000/health"
+      }
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Test User\", \"email\": \"test@example.com\", \"password\": \"password123\"}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"demo@dockmind.dev\", \"password\": \"demo1234\"}"
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Docker",
+      "item": [
+        {
+          "name": "List Containers",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/docker/containers",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Get Container Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/docker/containers/nginx/stats",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Execute Docker Action",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/docker/execute",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"action\": \"restart\", \"target\": \"nginx\"}"
+            }
+          }
+        },
+        {
+          "name": "Docker Info",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/docker/info",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "AI",
+      "item": [
+        {
+          "name": "Execute AI Command",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/ai/execute",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"prompt\": \"Restart the nginx container\"}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "History",
+      "item": [
+        {
+          "name": "Get History",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/history",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Prompts",
+      "item": [
+        {
+          "name": "Get Saved Prompts",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/prompts",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Save Prompt",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/prompts",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"title\": \"Restart Nginx\", \"content\": \"Restart the nginx container\"}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

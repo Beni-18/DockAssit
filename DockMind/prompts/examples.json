@@ -1,0 +1,42 @@
+[
+  {
+    "prompt": "Restart the nginx container",
+    "expected_response": {
+      "action": "restart",
+      "target": "nginx",
+      "explanation": "Restarting the nginx container to apply configuration changes."
+    }
+  },
+  {
+    "prompt": "Stop redis",
+    "expected_response": {
+      "action": "stop",
+      "target": "redis",
+      "explanation": "Stopping the redis container."
+    }
+  },
+  {
+    "prompt": "Start the postgres database",
+    "expected_response": {
+      "action": "start",
+      "target": "postgres",
+      "explanation": "Starting the postgres database container."
+    }
+  },
+  {
+    "prompt": "Remove the old test container",
+    "expected_response": {
+      "action": "remove",
+      "target": "test",
+      "explanation": "Removing the test container to clean up resources."
+    }
+  },
+  {
+    "prompt": "Show me the logs for the api container",
+    "expected_response": {
+      "action": "logs",
+      "target": "api",
+      "explanation": "Fetching the latest logs from the api container."
+    }
+  }
+]
