@@ -16,6 +16,7 @@ import time
 from abc import ABC, abstractmethod
 from functools import lru_cache
 from json import JSONDecodeError
+from typing import Optional
 
 import httpx
 from fastapi import HTTPException, status
@@ -210,8 +211,8 @@ class AIProvider(ABC):
     """
 
     @abstractmethod
-    async def generate(self, prompt: str) -> str:
-        """Return the model's text completion for ``prompt``."""
+    async def generate(self, prompt: str, system: Optional[str] = None) -> str:
+        """Return the model's text completion for ``prompt``, optionally under ``system``."""
         raise NotImplementedError
 
 
@@ -222,9 +223,10 @@ class OllamaProvider(AIProvider):
         self._model = model
         self._client = AsyncClient(host=host, timeout=timeout)
 
-    async def generate(self, prompt: str) -> str:
+    async def generate(self, prompt: str, system: Optional[str] = None) -> str:
         """
-        Request a chat completion from Ollama for ``prompt``.
+        Request a chat completion from Ollama for ``prompt``, optionally
+        under a ``system`` instruction (e.g. "phrase this data naturally").
 
         Raises
         ------
@@ -235,10 +237,15 @@ class OllamaProvider(AIProvider):
         AIInvalidResponseError
             If Ollama returns an error status or an empty completion.
         """
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
         try:
             result = await self._client.chat(
                 model=self._model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
             )
         except (OllamaResponseError, OllamaRequestError) as exc:
             raise AIInvalidResponseError(str(exc)) from exc
@@ -265,7 +272,7 @@ def get_ai_provider() -> AIProvider:
     return OllamaProvider(host=settings.OLLAMA_URL, model=settings.OLLAMA_MODEL)
 
 
-async def generate_chat_response(prompt: str, provider: AIProvider) -> str:
+async def generate_chat_response(prompt: str, provider: AIProvider, system: Optional[str] = None) -> str:
     """
     Send ``prompt`` to ``provider`` and return its generated text.
 
@@ -276,6 +283,9 @@ async def generate_chat_response(prompt: str, provider: AIProvider) -> str:
     provider:
         The ``AIProvider`` implementation to use, supplied via dependency
         injection so this function stays decoupled from any specific SDK.
+    system:
+        Optional system instruction — e.g. chatbot_service uses this to ask
+        for a natural phrasing of an already-known, factual result.
 
     Raises
     ------
@@ -286,7 +296,7 @@ async def generate_chat_response(prompt: str, provider: AIProvider) -> str:
     started_at = time.perf_counter()
 
     try:
-        response = await provider.generate(prompt)
+        response = await provider.generate(prompt, system=system)
     except AIServiceError as exc:
         logger.error("AI chat request failed after %.2fs: %s", time.perf_counter() - started_at, exc)
         raise

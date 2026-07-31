@@ -73,6 +73,10 @@ def _serialize_container(c: "docker.models.containers.Container") -> dict:
         "name": c.name,
         "image": c.image.tags[0] if c.image.tags else c.image.short_id,
         "status": c.status,
+        # Only present when the image defines a HEALTHCHECK — "healthy",
+        # "unhealthy", or "starting". None otherwise (not the same as status:
+        # a container can be "running" with no health check configured at all).
+        "health": (c.attrs.get("State", {}).get("Health") or {}).get("Status"),
         "created": c.attrs.get("Created"),
         "ports": c.ports or {},
         # ``Cmd`` is a list in exec form (e.g. ["redis-server"]) or a string in shell form.
@@ -482,6 +486,34 @@ class DockerService:
             }
 
         return self._execute("docker_version", _op)
+
+    def disk_usage(self) -> dict:
+        """Return aggregate disk space used by images, containers, volumes, and build cache."""
+
+        def _op(client: docker.DockerClient) -> dict:
+            df = client.df()
+            images = df.get("Images") or []
+            containers = df.get("Containers") or []
+            volumes = df.get("Volumes") or []
+            build_cache = df.get("BuildCache") or []
+
+            images_size = sum(i.get("Size", 0) for i in images)
+            containers_size = sum(c.get("SizeRw", 0) or 0 for c in containers)
+            volumes_size = sum((v.get("UsageData") or {}).get("Size", 0) or 0 for v in volumes)
+            build_cache_size = sum(b.get("Size", 0) for b in build_cache)
+
+            return {
+                "images_count": len(images),
+                "images_size": images_size,
+                "containers_count": len(containers),
+                "containers_size": containers_size,
+                "volumes_count": len(volumes),
+                "volumes_size": volumes_size,
+                "build_cache_size": build_cache_size,
+                "total_size": images_size + containers_size + volumes_size + build_cache_size,
+            }
+
+        return self._execute("disk_usage", _op)
 
 
 @lru_cache

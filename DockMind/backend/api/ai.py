@@ -91,7 +91,13 @@ async def execute_ai_command(
     action is recorded to command history.
     """
     try:
-        return await execute_prompt(db=db, user_id=current_user.id, prompt=payload.prompt, docker_service=docker_service)
+        return await execute_prompt(
+            db=db,
+            user_id=current_user.id,
+            prompt=payload.prompt,
+            docker_service=docker_service,
+            confirmed=payload.confirmed,
+        )
     except AIProviderUnavailableError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except AIProviderTimeoutError as exc:

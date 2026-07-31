@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { ChatProvider } from './context/ChatContext'
 import PrivateRoute from './components/common/PrivateRoute'
 
 import Login from './pages/Login/Login'
@@ -21,94 +22,96 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route
-              path="/dashboard"
-              element={
-                <PrivateRoute>
-                  <Dashboard />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/containers"
-              element={
-                <PrivateRoute>
-                  <Containers />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/monitoring"
-              element={
-                <PrivateRoute>
-                  <Monitoring />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/ai-assistant"
-              element={
-                <PrivateRoute>
-                  <AIAssistant />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/history"
-              element={
-                <PrivateRoute>
-                  <History />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/frequent-commands"
-              element={
-                <PrivateRoute>
-                  <FrequentCommands />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/images"
-              element={
-                <PrivateRoute>
-                  <Images />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/volumes"
-              element={
-                <PrivateRoute>
-                  <Volumes />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/networks"
-              element={
-                <PrivateRoute>
-                  <Networks />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <PrivateRoute>
-                  <Settings />
-                </PrivateRoute>
-              }
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
+        <ChatProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <PrivateRoute>
+                    <Dashboard />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/containers"
+                element={
+                  <PrivateRoute>
+                    <Containers />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/monitoring"
+                element={
+                  <PrivateRoute>
+                    <Monitoring />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/ai-assistant"
+                element={
+                  <PrivateRoute>
+                    <AIAssistant />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/history"
+                element={
+                  <PrivateRoute>
+                    <History />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/frequent-commands"
+                element={
+                  <PrivateRoute>
+                    <FrequentCommands />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/images"
+                element={
+                  <PrivateRoute>
+                    <Images />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/volumes"
+                element={
+                  <PrivateRoute>
+                    <Volumes />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/networks"
+                element={
+                  <PrivateRoute>
+                    <Networks />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <PrivateRoute>
+                    <Settings />
+                  </PrivateRoute>
+                }
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Router>
+        </ChatProvider>
       </AuthProvider>
     </ThemeProvider>
   )

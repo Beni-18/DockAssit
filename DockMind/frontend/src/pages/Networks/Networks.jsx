@@ -1,21 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import Sidebar from '../../components/common/Sidebar'
 import api from '../../services/api'
-import { createNetwork } from '../../services/docker'
-import { Network, Trash2, Search, RefreshCw, GitFork, Plus, X } from 'lucide-react'
+import { Network, Trash2, Search, RefreshCw, GitFork } from 'lucide-react'
 
 const Networks = () => {
   const [networks, setNetworks] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-
-  // Add Network Modal States
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [newNetName, setNewNetName] = useState('')
-  const [newNetDriver, setNewNetDriver] = useState('bridge')
-  const [addLoading, setAddLoading] = useState(false)
-  const [addError, setAddError] = useState(null)
-  const [addSuccess, setAddSuccess] = useState(null)
 
   const fetchNetworks = async () => {
     setLoading(true)
@@ -33,44 +24,7 @@ const Networks = () => {
     fetchNetworks()
   }, [])
 
-  const handleDelete = async (id, name) => {
-    if (confirm(`Are you sure you want to delete network ${name}?`)) {
-      try {
-        await api.post('/docker/execute', { action: 'remove_network', target: id })
-        setNetworks(networks.filter(net => net.id !== id))
-      } catch (e) {
-        alert(e.response?.data?.detail || 'Failed to remove network')
-      }
-    }
-  }
-
-  const handleAddNetwork = async (e) => {
-    e.preventDefault()
-    if (!newNetName.trim()) {
-      setAddError('Network name is required.')
-      return
-    }
-    setAddLoading(true)
-    setAddError(null)
-    setAddSuccess(null)
-    try {
-      const res = await createNetwork(newNetName, newNetDriver)
-      setAddSuccess(res.message || 'Network created successfully.')
-      setTimeout(() => {
-        setShowAddModal(false)
-        setNewNetName('')
-        setNewNetDriver('bridge')
-        setAddSuccess(null)
-        fetchNetworks()
-      }, 2000)
-    } catch (err) {
-      setAddError(err.response?.data?.detail || 'Failed to create network.')
-    } finally {
-      setAddLoading(false)
-    }
-  }
-
-  const filteredNetworks = networks.filter(net => 
+  const filteredNetworks = networks.filter(net =>
     net.name.toLowerCase().includes(search.toLowerCase()) || 
     net.driver.toLowerCase().includes(search.toLowerCase()) ||
     net.scope.toLowerCase().includes(search.toLowerCase())
@@ -87,23 +41,12 @@ const Networks = () => {
             <p className="text-muted text-sm mt-1">Manage virtual networks and integrations.</p>
           </div>
           <div className="flex items-center gap-3">
-            <button 
+            <button
               onClick={fetchNetworks}
               className="flex items-center gap-2 px-3.5 py-2 text-sm font-semibold text-text bg-surface border border-border rounded-xl hover:border-primary transition-all duration-200"
             >
               <RefreshCw className="w-4 h-4" />
               Refresh
-            </button>
-            <button 
-              onClick={() => {
-                setAddError(null)
-                setAddSuccess(null)
-                setShowAddModal(true)
-              }}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary/95 rounded-xl shadow-lg shadow-primary/10 transition-all duration-200"
-            >
-              <Plus className="w-4 h-4" />
-              Add Network
             </button>
           </div>
         </div>
@@ -170,9 +113,9 @@ const Networks = () => {
                             <span className="text-xs text-muted italic">System</span>
                           ) : (
                             <button
-                              onClick={() => handleDelete(net.id, net.name)}
-                              className="p-2 text-red-500 hover:bg-red-50 border border-transparent hover:border-red-100 rounded-lg transition-all"
-                              title="Delete Network"
+                              disabled
+                              className="p-2 text-muted opacity-40 cursor-not-allowed rounded-lg"
+                              title="Removing networks isn't supported yet"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -186,86 +129,6 @@ const Networks = () => {
             </div>
           )}
         </div>
-
-        {/* Add Network Modal */}
-        {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-            <div className="bg-surface border border-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center px-6 py-4 border-b border-border bg-bg/50">
-                <div>
-                  <h3 className="font-bold text-text text-lg">Create New Network</h3>
-                  <p className="text-xs text-muted">Create a virtual Docker network bridge or overlay.</p>
-                </div>
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="p-1.5 rounded-lg border border-border hover:bg-bg text-muted hover:text-text transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <form onSubmit={handleAddNetwork} className="p-6 space-y-4 text-sm">
-                {addError && (
-                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
-                    {addError}
-                  </div>
-                )}
-                {addSuccess && (
-                  <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-xs font-semibold flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span>
-                    {addSuccess}
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-xs font-semibold text-text uppercase tracking-wider mb-1.5">Network Name *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. my_custom_net"
-                    value={newNetName}
-                    onChange={e => setNewNetName(e.target.value)}
-                    required
-                    className="w-full px-3.5 py-2.5 bg-bg/50 border border-border rounded-xl text-text placeholder-muted/60 focus:outline-none focus:border-primary focus:bg-surface transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-text uppercase tracking-wider mb-1.5">Driver / Type *</label>
-                  <select
-                    value={newNetDriver}
-                    onChange={e => setNewNetDriver(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-bg/50 border border-border rounded-xl text-text focus:outline-none focus:border-primary focus:bg-surface transition-all font-medium"
-                  >
-                    <option value="bridge">bridge (Local container communication)</option>
-                    <option value="host">host (Direct host network bypass)</option>
-                    <option value="overlay">overlay (Multi-host swarm routing)</option>
-                    <option value="macvlan">macvlan (Direct MAC interface assignment)</option>
-                  </select>
-                </div>
-
-                <div className="pt-4 border-t border-border flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddModal(false)}
-                    className="px-4 py-2 border border-border rounded-xl text-xs font-semibold hover:bg-bg text-muted hover:text-text transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={addLoading}
-                    className="px-5 py-2 bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 disabled:opacity-50"
-                  >
-                    {addLoading ? 'Creating...' : 'Create Network'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   )

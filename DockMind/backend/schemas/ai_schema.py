@@ -101,6 +101,13 @@ class AiExecuteRequest(BaseModel):
         description="Natural language Docker instruction or question.",
         examples=["Restart the nginx container"],
     )
+    confirmed: bool = Field(
+        default=False,
+        description=(
+            "Set true to proceed with a bulk action previously previewed via "
+            "needs_confirmation=True in the response to this same prompt."
+        ),
+    )
 
     @field_validator("prompt")
     @classmethod
@@ -132,4 +139,11 @@ class AiExecuteResponse(BaseModel):
     success: Optional[bool] = Field(
         default=None,
         description="Whether the identified action succeeded. Omitted for pure chat replies.",
+    )
+    needs_confirmation: bool = Field(
+        default=False,
+        description=(
+            "True when this is a preview of a bulk action awaiting confirmation — "
+            "nothing was executed yet. Resend the same prompt with confirmed=true to proceed."
+        ),
     )
