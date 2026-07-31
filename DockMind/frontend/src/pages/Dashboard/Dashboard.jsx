@@ -1,38 +1,28 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { Box, CheckCircle2, StopCircle, Activity } from 'lucide-react'
 import Sidebar from '../../components/common/Sidebar'
 import MetricCard from '../../components/dashboard/MetricCard'
 import ContainerTable from '../../components/docker/ContainerTable'
-import PromptBox from '../../components/ai/PromptBox'
-import AIResponse from '../../components/ai/AIResponse'
+import ChatPanel from '../../components/chatbot/ChatPanel'
 import useContainers from '../../hooks/useContainers'
-import { executeDockerAction } from '../../services/docker'
-import api from '../../services/api'
+import { executeDockerAction, getDockerInfo } from '../../services/docker'
 
 const Dashboard = () => {
-  const { containers, loading } = useContainers()
-  const [aiLoading, setAiLoading] = useState(false)
-  const [aiResponse, setAiResponse] = useState(null)
-  const [aiError, setAiError] = useState(null)
+  const { containers, loading, refetch } = useContainers()
+  const [dockerStatus, setDockerStatus] = useState('Checking...')
+
+  useEffect(() => {
+    getDockerInfo()
+      .then(() => setDockerStatus('Healthy'))
+      .catch(() => setDockerStatus('Unreachable'))
+  }, [])
 
   const runningCount = containers.filter((c) => c.status === 'running').length
   const stoppedCount = containers.filter((c) => c.status === 'exited').length
 
-  const handlePrompt = async (prompt) => {
-    setAiLoading(true)
-    setAiError(null)
-    setAiResponse(null)
-    try {
-      const res = await api.post('/ai/execute', { prompt })
-      setAiResponse(res.data)
-    } catch (err) {
-      setAiError(err.response?.data?.detail || 'AI request failed.')
-    } finally {
-      setAiLoading(false)
-    }
-  }
-
   const handleContainerAction = async (action, containerId) => {
     await executeDockerAction(action, containerId)
+    refetch()
   }
 
   return (
@@ -47,18 +37,14 @@ const Dashboard = () => {
 
         {/* Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard title="Total Containers" value={containers.length} icon="📦" color="indigo" />
-          <MetricCard title="Running" value={runningCount} icon="✅" color="green" />
-          <MetricCard title="Stopped" value={stoppedCount} icon="🛑" color="indigo" />
-          <MetricCard title="Docker Status" value="Healthy" icon="🐳" color="cyan" />
+          <MetricCard title="Total Containers" value={containers.length} icon={Box} color="primary" />
+          <MetricCard title="Running" value={runningCount} icon={CheckCircle2} color="success" />
+          <MetricCard title="Stopped" value={stoppedCount} icon={StopCircle} color="muted" />
+          <MetricCard title="Docker Status" value={dockerStatus} icon={Activity} color="accent" />
         </div>
 
-        {/* AI Prompt Section */}
-        <div className="space-y-3">
-          <h3 className="text-lg font-semibold">Ask DockMind</h3>
-          <PromptBox onSubmit={handlePrompt} loading={aiLoading} />
-          <AIResponse response={aiResponse} loading={aiLoading} error={aiError} />
-        </div>
+        {/* AI Chat Panel — self-contained, see components/chatbot/ChatPanel.jsx */}
+        <ChatPanel />
 
         {/* Container Table */}
         <div className="bg-surface border border-border rounded-xl p-6">

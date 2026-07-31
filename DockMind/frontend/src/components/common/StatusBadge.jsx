@@ -4,12 +4,12 @@ import React from 'react'
  * StatusBadge — colored badge for container status
  */
 const statusStyles = {
-  running: 'bg-green-500/20 text-green-400 border border-green-500/30',
-  exited: 'bg-red-500/20 text-red-400 border border-red-500/30',
-  paused: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
-  restarting: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
-  created: 'bg-gray-500/20 text-gray-400 border border-gray-500/30',
-  dead: 'bg-red-900/20 text-red-600 border border-red-900/30',
+  running: 'bg-success/20 text-success border border-success/30',
+  exited: 'bg-danger/20 text-danger border border-danger/30',
+  paused: 'bg-warning/20 text-warning border border-warning/30',
+  restarting: 'bg-accent/20 text-accent border border-accent/30',
+  created: 'bg-muted/20 text-muted border border-muted/30',
+  dead: 'bg-danger/30 text-danger border border-danger/40',
 }
 
 const StatusBadge = ({ status }) => {

@@ -3,7 +3,9 @@ AI request and response schemas.
 
 Pydantic v2 models that define the contract between the API layer
 and the AI service. The ``InterpretRequest`` / ``DockerIntent``
-pair is used by the ``POST /api/v1/ai/interpret`` endpoint.
+pair is used by the ``POST /api/v1/ai/interpret`` endpoint, and the
+``ChatRequest`` / ``ChatResponse`` pair is used by the
+``POST /api/v1/ai/chat`` endpoint.
 """
 
 from typing import Optional
@@ -49,4 +51,34 @@ class DockerIntent(BaseModel):
         ...,
         description="Name or ID of the target resource.",
         examples=["nginx"],
+    )
+
+
+class ChatRequest(BaseModel):
+    """Inbound payload containing a free-form prompt for the AI model."""
+
+    prompt: str = Field(
+        ...,
+        min_length=1,
+        max_length=2000,
+        description="Natural language prompt to send to the AI model.",
+        examples=["Explain Docker volumes."],
+    )
+
+    @field_validator("prompt")
+    @classmethod
+    def prompt_must_not_be_blank(cls, value: str) -> str:
+        """Reject prompts that consist solely of whitespace."""
+        if not value.strip():
+            raise ValueError("Prompt must not be blank.")
+        return value.strip()
+
+
+class ChatResponse(BaseModel):
+    """AI-generated reply to a chat prompt."""
+
+    response: str = Field(
+        ...,
+        description="The AI model's generated response.",
+        examples=["Docker volumes are the preferred mechanism for persisting data..."],
     )

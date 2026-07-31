@@ -3,18 +3,30 @@
 @tailwind utilities;
 
 /* Global CSS variables & base styles */
+/* Brand color (Docker blue) and semantic status colors stay constant across
+   themes — only the canvas and text tone swap between dark and light. */
 :root {
-  --color-primary: #6366f1;
-  --color-secondary: #8b5cf6;
-  --color-accent: #22d3ee;
-  --color-bg: #0f172a;
-  --color-surface: #1e293b;
-  --color-border: #334155;
-  --color-text: #f1f5f9;
-  --color-muted: #64748b;
+  /* Dark theme: blue + black */
+  --color-primary: #2496ed;
+  --color-secondary: #0d5f8a;
+  --color-accent: #38bdf8;
+  --color-bg: #0a0e14;
+  --color-surface: #131a24;
+  --color-border: #1f2937;
+  --color-text: #e6edf3;
+  --color-muted: #7d8590;
   --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
+}
+
+:root[data-theme='light'] {
+  /* Light theme: dark blue + white */
+  --color-bg: #ffffff;
+  --color-surface: #f8fafc;
+  --color-border: #dbe3ea;
+  --color-text: #0b2545;
+  --color-muted: #5b7083;
 }
 
 * {

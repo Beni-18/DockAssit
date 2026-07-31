@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
+import { Send } from 'lucide-react'
 
 /**
- * PromptBox — natural language input for AI Docker commands
+ * PromptBox — the fixed composer row at the bottom of the chat panel
  */
 const PromptBox = ({ onSubmit, loading }) => {
   const [prompt, setPrompt] = useState('')
@@ -21,26 +22,26 @@ const PromptBox = ({ onSubmit, loading }) => {
   ]
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
-      <form onSubmit={handleSubmit} className="flex gap-3">
+    <div>
+      <form onSubmit={handleSubmit} className="flex gap-2">
         <input
           type="text"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="Ask DockMind anything... e.g. 'Restart the nginx container'"
           disabled={loading}
-          className="flex-1 bg-bg border border-border rounded-lg px-4 py-3 text-sm text-text placeholder-muted focus:outline-none focus:border-primary transition-colors"
+          className="flex-1 bg-bg border border-border rounded-lg px-4 py-2.5 text-sm text-text placeholder-muted focus:outline-none focus:border-primary transition-colors"
         />
         <button
           type="submit"
           disabled={loading || !prompt.trim()}
-          className="px-6 py-3 bg-primary text-white rounded-lg text-sm font-medium hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          aria-label="Send"
+          className="flex items-center justify-center w-10 h-10 shrink-0 bg-primary text-white rounded-full hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
         >
-          {loading ? '...' : 'Ask AI'}
+          <Send size={16} strokeWidth={2} />
         </button>
       </form>
 
-      {/* Quick suggestion chips */}
       <div className="flex flex-wrap gap-2 mt-3">
         {suggestions.map((s) => (
           <button

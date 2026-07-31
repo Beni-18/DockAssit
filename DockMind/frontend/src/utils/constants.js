@@ -38,6 +38,6 @@ export const ROUTES = {
   LOGIN: '/login',
   DASHBOARD: '/',
   HISTORY: '/history',
-  SAVED_PROMPTS: '/saved-prompts',
+  FREQUENT_COMMANDS: '/frequent-commands',
   SETTINGS: '/settings',
 }

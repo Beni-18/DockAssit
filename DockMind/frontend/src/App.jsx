@@ -7,7 +7,7 @@ import PrivateRoute from './components/common/PrivateRoute'
 import Login from './pages/Login/Login'
 import Dashboard from './pages/Dashboard/Dashboard'
 import History from './pages/History/History'
-import SavedPrompts from './pages/SavedPrompts/SavedPrompts'
+import FrequentCommands from './pages/FrequentCommands/FrequentCommands'
 import Settings from './pages/Settings/Settings'
 
 function App() {
@@ -34,10 +34,10 @@ function App() {
               }
             />
             <Route
-              path="/saved-prompts"
+              path="/frequent-commands"
               element={
                 <PrivateRoute>
-                  <SavedPrompts />
+                  <FrequentCommands />
                 </PrivateRoute>
               }
             />

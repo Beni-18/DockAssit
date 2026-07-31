@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login } from '../../services/auth'
 import { useAuth } from '../../context/AuthContext'
+import BrandMark from '../../components/common/BrandMark'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -29,9 +30,9 @@ const Login = () => {
     <div className="min-h-screen bg-bg flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-primary">🐳 DockMind</h1>
-          <p className="text-muted mt-2">AI Powered Docker Health Dashboard</p>
+        <div className="flex flex-col items-center text-center mb-8">
+          <BrandMark size="lg" />
+          <p className="text-muted mt-3">AI Powered Docker Health Dashboard</p>
         </div>
 
         {/* Card */}
@@ -39,7 +40,7 @@ const Login = () => {
           <h2 className="text-xl font-semibold mb-6">Sign in to your account</h2>
 
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+            <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">
               {error}
             </div>
           )}
@@ -75,7 +76,7 @@ const Login = () => {
               type="submit"
               id="login-submit"
               disabled={loading}
-              className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-indigo-600 disabled:opacity-50 transition-colors mt-2"
+              className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:opacity-90 disabled:opacity-50 transition-opacity mt-2"
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </button>

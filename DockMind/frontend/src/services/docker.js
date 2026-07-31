@@ -18,21 +18,33 @@ export const getContainerById = async (containerId) => {
 
 // Get container resource stats (CPU, memory, network)
 export const getContainerStats = async (containerId) => {
-  const response = await api.get(`/docker/containers/${containerId}/stats`)
+  const response = await api.get(`/docker/stats/${containerId}`)
   return response.data
 }
 
 // Get container logs
 export const getContainerLogs = async (containerId, tail = 100) => {
-  const response = await api.get(`/docker/containers/${containerId}/logs`, {
+  const response = await api.get(`/docker/logs/${containerId}`, {
     params: { tail },
   })
   return response.data
 }
 
-// Execute a Docker action (start, stop, restart, remove)
-export const executeDockerAction = async (action, target) => {
-  const response = await api.post('/docker/execute', { action, target })
+// Each Docker lifecycle action lives on its own backend endpoint
+const ACTION_REQUESTS = {
+  start: (id) => api.post(`/docker/start/${id}`),
+  stop: (id) => api.post(`/docker/stop/${id}`),
+  restart: (id) => api.post(`/docker/restart/${id}`),
+  remove: (id) => api.delete(`/docker/container/${id}`),
+}
+
+// Execute a Docker action (start, stop, restart, remove) on a container
+export const executeDockerAction = async (action, containerId) => {
+  const sendRequest = ACTION_REQUESTS[action]
+  if (!sendRequest) {
+    throw new Error(`Unsupported Docker action: ${action}`)
+  }
+  const response = await sendRequest(containerId)
   return response.data
 }
 

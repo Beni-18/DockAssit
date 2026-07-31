@@ -8,7 +8,7 @@ const Loader = ({ fullPage = false, size = 'md' }) => {
 
   const spinner = (
     <div
-      className={`animate-spin rounded-full border-b-2 border-indigo-500 ${sizeMap[size]}`}
+      className={`animate-spin rounded-full border-b-2 border-primary ${sizeMap[size]}`}
     />
   )
 

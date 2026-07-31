@@ -63,12 +63,12 @@ class PromptService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Saved prompt not found.",
             )
-        
+
         if payload.title is not None:
             prompt.title = payload.title
         if payload.content is not None:
             prompt.content = payload.content
-            
+
         db.commit()
         db.refresh(prompt)
         return prompt
@@ -90,7 +90,6 @@ class PromptService:
     async def execute_prompt(db: Session, user_id: int, prompt_text: str) -> dict:
         """
         Orchestrate the complete DockAssist execution pipeline.
-        
         Flow:
         1. AI Service parses natural language into structured DockerIntent.
         2. Docker Service executes the corresponding action.
@@ -179,6 +178,6 @@ class PromptService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Saved prompt not found.",
             )
-        
+
         logger.info("User %s executing saved prompt %s", user_id, prompt_id)
         return await PromptService.execute_prompt(db, user_id, prompt.content)

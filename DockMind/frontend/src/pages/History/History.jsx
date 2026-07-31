@@ -1,18 +1,23 @@
 import React, { useEffect, useState } from 'react'
 import Sidebar from '../../components/common/Sidebar'
 import { formatDateTime } from '../../utils/formatters'
-import api from '../../services/api'
+import { getHistory, deleteHistoryEntry } from '../../services/history'
 
 const History = () => {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/history').then((res) => {
-      setHistory(res.data)
-      setLoading(false)
-    }).catch(() => setLoading(false))
+    getHistory()
+      .then(setHistory)
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
+
+  const handleDelete = async (id) => {
+    await deleteHistoryEntry(id)
+    setHistory((prev) => prev.filter((h) => h.id !== id))
+  }
 
   return (
     <div className="flex min-h-screen bg-bg">
@@ -37,20 +42,29 @@ const History = () => {
                   <th className="p-4 font-medium">Target</th>
                   <th className="p-4 font-medium">Result</th>
                   <th className="p-4 font-medium">Time</th>
+                  <th className="p-4 font-medium"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {history.map((h) => (
                   <tr key={h.id} className="hover:bg-bg transition-colors">
                     <td className="p-4 text-muted">{h.prompt}</td>
-                    <td className="p-4 font-mono text-indigo-400">{h.action}</td>
-                    <td className="p-4 font-mono text-cyan-400">{h.target}</td>
+                    <td className="p-4 font-mono text-primary">{h.action}</td>
+                    <td className="p-4 font-mono text-accent">{h.target}</td>
                     <td className="p-4">
-                      <span className={`text-xs px-2 py-1 rounded-full ${h.success ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                      <span className={`text-xs px-2 py-1 rounded-full ${h.success ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
                         {h.success ? 'Success' : 'Failed'}
                       </span>
                     </td>
                     <td className="p-4 text-muted">{formatDateTime(h.created_at)}</td>
+                    <td className="p-4">
+                      <button
+                        onClick={() => handleDelete(h.id)}
+                        className="text-xs text-danger hover:opacity-80 transition-opacity"
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
