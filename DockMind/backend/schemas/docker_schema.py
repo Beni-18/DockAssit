@@ -28,6 +28,10 @@ class ContainerSummary(BaseModel):
         description="Health check status (healthy, unhealthy, starting), if the image defines one.",
     )
     created: Optional[str] = Field(default=None, description="ISO 8601 creation timestamp.")
+    started_at: Optional[str] = Field(
+        default=None,
+        description="ISO 8601 timestamp of when the container was last started — the basis for uptime.",
+    )
     ports: dict[str, Any] = Field(default_factory=dict, description="Exposed port bindings.")
 
 
@@ -57,6 +61,8 @@ class ContainerStatsResponse(BaseModel):
     memory_percent: float = Field(..., description="Memory usage as a percentage of the limit.")
     network_rx: int = Field(..., description="Total bytes received over all network interfaces.")
     network_tx: int = Field(..., description="Total bytes transmitted over all network interfaces.")
+    disk_read: int = Field(default=0, description="Cumulative bytes read from block devices since container start.")
+    disk_write: int = Field(default=0, description="Cumulative bytes written to block devices since container start.")
 
 
 class ContainerActionResponse(BaseModel):

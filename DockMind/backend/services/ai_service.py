@@ -306,3 +306,25 @@ async def generate_chat_response(prompt: str, provider: AIProvider, system: Opti
 
     logger.info("AI chat response generated in %.2fs", time.perf_counter() - started_at)
     return response
+
+
+async def check_ollama_health() -> dict:
+    """
+    Lightweight reachability check for the configured Ollama host — powers a
+    real connected/disconnected status in the UI instead of a hardcoded
+    label. Uses ``AsyncClient.list()`` (Ollama's model-listing endpoint) so
+    it never invokes the model itself and stays fast to poll.
+    """
+    host, model = settings.OLLAMA_URL, settings.OLLAMA_MODEL
+    try:
+        client = AsyncClient(host=host, timeout=3.0)
+        result = await client.list()
+    except Exception:
+        # Deliberately broad: any failure here means "can't confirm it's up"
+        # — this is a status indicator, not something that should ever raise
+        # and break the page that's just trying to show a health dot.
+        return {"connected": False, "host": host, "model": model, "model_available": False}
+
+    available = {m.model for m in (result.models or [])}
+    model_available = model in available or any(m.split(":")[0] == model.split(":")[0] for m in available)
+    return {"connected": True, "host": host, "model": model, "model_available": model_available}

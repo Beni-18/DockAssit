@@ -18,9 +18,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
 from api import ai, auth, docker, history, prompts
 from config.config import settings
+from middleware.rate_limit import limiter
 from utils.logger import logger
 
 
@@ -55,6 +59,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
 # ---------------------------------------------------------------------------
 # Application factory
 # ---------------------------------------------------------------------------
+# The interactive docs expose the full API surface (every schema, every
+# route) to anyone who can reach them — fine for local/staging use, but they
+# should not be reachable in production.
+# ---------------------------------------------------------------------------
+_docs_enabled = settings.ENVIRONMENT != "production"
 
 app = FastAPI(
     title=f"{settings.APP_NAME} API",
@@ -64,10 +73,18 @@ app = FastAPI(
         "commands through the Google Gemini AI integration."
     ),
     version=settings.APP_VERSION,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
     lifespan=lifespan,
 )
+
+# ---------------------------------------------------------------------------
+# Rate limiting — throttles brute-force-able auth endpoints (see api/auth.py
+# for the per-route limits). Keyed by client IP.
+# ---------------------------------------------------------------------------
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
 
 
 # ---------------------------------------------------------------------------
@@ -110,6 +127,23 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         status_code=exc.status_code,
         content={"detail": exc.detail},
         headers=getattr(exc, "headers", None),
+    )
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    """
+    Return the same ``{"detail": ...}`` envelope as every other error.
+
+    slowapi's own default handler responds with ``{"error": ...}``, which
+    the frontend's error parsing (keyed on ``detail``) wouldn't recognize —
+    a rate-limited user would otherwise see a generic "check your
+    credentials" message instead of being told to slow down.
+    """
+    logger.warning("Rate limit exceeded on %s from %s", request.url.path, get_remote_address(request))
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Too many attempts. Please wait a moment and try again."},
     )
 
 

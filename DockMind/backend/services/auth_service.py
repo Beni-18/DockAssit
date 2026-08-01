@@ -17,6 +17,14 @@ from models.user import User
 class AuthService:
     """Encapsulates all authentication use cases."""
 
+    # A precomputed bcrypt hash used only to burn the same CPU time as a real
+    # verification when the looked-up email doesn't exist. Without this,
+    # `login_user` would short-circuit and return well before a real user's
+    # bcrypt.verify() completes — a timing side-channel that lets an attacker
+    # tell registered emails apart from unregistered ones purely from
+    # response latency, without any error message ever differing.
+    _DUMMY_HASH = hash_password("dummy-password-for-constant-time-login")
+
     @staticmethod
     def register_user(db: Session, name: str, email: str, password: str) -> dict:
         """
@@ -57,28 +65,20 @@ class AuthService:
             If the account has been deactivated.
         """
         user = db.query(User).filter(User.email == email).first()
-        if not user or not user.hashed_password or not verify_password(password, user.hashed_password):
+
+        # Always run a bcrypt verification, even for an unknown email or a
+        # Google-only account with no local password, so response timing is
+        # the same either way (see _DUMMY_HASH above).
+        hash_to_check = user.hashed_password if (user and user.hashed_password) else AuthService._DUMMY_HASH
+        password_matches = verify_password(password, hash_to_check)
+
+        if not user or not user.hashed_password or not password_matches:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
         if not user.is_active:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is disabled")
 
         token = create_access_token(data={"sub": str(user.id)})
         return {"access_token": token, "token_type": "bearer", "user": user}
-
-    @staticmethod
-    def get_current_user(db: Session, user_id: int) -> User:
-        """
-        Retrieve the user identified by a validated JWT subject.
-
-        Raises
-        ------
-        HTTPException (404)
-            If the user no longer exists.
-        """
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-        return user
 
     @staticmethod
     def logout_user() -> dict:

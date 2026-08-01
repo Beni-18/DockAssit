@@ -35,6 +35,26 @@ export const formatRelativeTime = (isoString) => {
 }
 
 /**
+ * Real elapsed duration since a container was last started (Docker's
+ * `State.StartedAt`), e.g. "1d 3h", "2h 15m", "20m". Docker sets this to
+ * the zero time for a container that's never been started.
+ */
+export const formatUptime = (isoString) => {
+  if (!isoString) return '—'
+  const started = new Date(isoString).getTime()
+  if (Number.isNaN(started) || started <= 0) return '—'
+  const diffSec = Math.floor((Date.now() - started) / 1000)
+  if (diffSec < 0) return '—'
+  const days = Math.floor(diffSec / 86400)
+  const hours = Math.floor((diffSec % 86400) / 3600)
+  const minutes = Math.floor((diffSec % 3600) / 60)
+  if (days > 0) return `${days}d ${hours}h`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  if (minutes > 0) return `${minutes}m`
+  return `${diffSec % 60}s`
+}
+
+/**
  * Container Status Formatting
  */
 

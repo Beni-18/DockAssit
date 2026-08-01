@@ -78,6 +78,13 @@ def _serialize_container(c: "docker.models.containers.Container") -> dict:
         # a container can be "running" with no health check configured at all).
         "health": (c.attrs.get("State", {}).get("Health") or {}).get("Status"),
         "created": c.attrs.get("Created"),
+        # When it was last actually started (distinct from "created", which
+        # is the container's creation time and doesn't change on restart) —
+        # the real source for an "uptime" figure. Docker sets this to the
+        # zero time ("0001-01-01T00:00:00Z") for a container that's never
+        # been started, so callers should treat that as "no uptime" rather
+        # than a real timestamp.
+        "started_at": c.attrs.get("State", {}).get("StartedAt"),
         "ports": c.ports or {},
         # ``Cmd`` is a list in exec form (e.g. ["redis-server"]) or a string in shell form.
         "command": " ".join(cmd) if isinstance(cmd, list) else cmd,
@@ -241,6 +248,13 @@ class DockerService:
             rx = sum(v.get("rx_bytes", 0) for v in networks.values())
             tx = sum(v.get("tx_bytes", 0) for v in networks.values())
 
+            # Cumulative disk bytes since container start, broken down by
+            # operation type in Docker's raw stats blob — sum the "Read" and
+            # "Write" entries across every block device the container touched.
+            blkio_entries = (s.get("blkio_stats") or {}).get("io_service_bytes_recursive") or []
+            disk_read = sum(e.get("value", 0) for e in blkio_entries if e.get("op") == "Read")
+            disk_write = sum(e.get("value", 0) for e in blkio_entries if e.get("op") == "Write")
+
             return {
                 "container_id": c.short_id,
                 "name": c.name,
@@ -250,6 +264,8 @@ class DockerService:
                 "memory_percent": round((memory_usage / memory_limit) * 100.0, 2),
                 "network_rx": rx,
                 "network_tx": tx,
+                "disk_read": disk_read,
+                "disk_write": disk_write,
             }
 
         return self._execute(

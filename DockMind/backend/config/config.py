@@ -46,9 +46,14 @@ class Settings(BaseSettings):
     )
 
     # ── JWT Authentication ────────────────────────────────────────────────────
+    # min_length=32 enforces a minimum entropy floor for the HS256 signing key —
+    # a short secret is brute-forceable offline from any single leaked token,
+    # with no server involvement required. Generate one with, e.g.:
+    #   python -c "import secrets; print(secrets.token_hex(32))"
     JWT_SECRET: str = Field(
         ...,
-        description="Secret key used to sign and verify JWT tokens. Must be strong and kept private.",
+        min_length=32,
+        description="Secret key used to sign and verify JWT tokens. Must be strong (32+ random chars) and kept private.",
     )
     JWT_ALGORITHM: str = Field(
         default="HS256",
