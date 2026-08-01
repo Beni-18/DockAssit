@@ -15,8 +15,8 @@ const statusStyles = {
 const StatusBadge = ({ status }) => {
   const style = statusStyles[status?.toLowerCase()] || statusStyles.created
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${style}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium backdrop-blur-sm ${style}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_8px_currentColor] animate-pulse" />
       {status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown'}
     </span>
   )

@@ -1,121 +1,133 @@
 import React, { useState, useEffect } from 'react'
-import Sidebar from '../../components/common/Sidebar'
+import { motion } from 'framer-motion'
+import AppShell from '../../components/common/ui/AppShell'
+import PageHeader from '../../components/common/ui/PageHeader'
+import Card from '../../components/common/ui/Card'
+import Button from '../../components/common/ui/Button'
+import { SkeletonRows } from '../../components/common/ui/Skeleton'
 import api from '../../services/api'
-import { HardDrive, Trash2, Search, RefreshCw, Database } from 'lucide-react'
+import { Trash2, Search, RefreshCw, Database } from 'lucide-react'
 import { formatDate } from '../../utils/formatters'
 
 const Volumes = () => {
   const [volumes, setVolumes] = useState([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [search, setSearch]   = useState('')
 
   const fetchVolumes = async () => {
     setLoading(true)
     try {
       const res = await api.get('/docker/volumes')
       setVolumes(res.data)
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
   }
 
-  useEffect(() => {
-    fetchVolumes()
-  }, [])
+  useEffect(() => { fetchVolumes() }, [])
 
-  const filteredVolumes = volumes.filter(vol =>
-    vol.name.toLowerCase().includes(search.toLowerCase()) || vol.driver.toLowerCase().includes(search.toLowerCase())
+  const filteredVolumes = volumes.filter((vol) =>
+    vol.name.toLowerCase().includes(search.toLowerCase()) ||
+    vol.driver.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
-    <div className="flex min-h-screen bg-bg">
-      <Sidebar />
-      <main className="flex-1 p-8 overflow-y-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h2 className="text-3xl font-extrabold text-text tracking-tight">Volumes</h2>
-            <p className="text-muted text-sm mt-1">Manage persistent storage volumes.</p>
-          </div>
-          <button 
-            onClick={fetchVolumes}
-            className="flex items-center gap-2 px-3.5 py-2 text-sm font-semibold text-text bg-surface border border-border rounded-xl hover:border-primary transition-all duration-200"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
-        </div>
+    <AppShell>
+      <PageHeader
+        title="Volumes"
+        subtitle="Manage persistent Docker storage volumes."
+        actions={
+          <Button variant="glass" size="sm" shape="rounded" onClick={fetchVolumes}>
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          </Button>
+        }
+      />
 
-        {/* Filter Bar */}
-        <div className="flex justify-between items-center mb-6">
-          <div className="text-xs font-semibold text-muted bg-surface border border-border px-3.5 py-2 rounded-xl">
-            Total Volumes: {volumes.length}
-          </div>
-          
-          <div className="relative w-80 group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within:text-primary transition-colors" />
-            <input
-              type="text"
-              placeholder="Search volumes..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border rounded-xl text-sm text-text placeholder-muted/60 focus:outline-none focus:border-primary transition-all duration-200"
-            />
-          </div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
+        <div
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-muted"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-glass-border)' }}
+        >
+          <Database className="w-3.5 h-3.5" />
+          {volumes.length} volume{volumes.length !== 1 ? 's' : ''}
         </div>
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+          <input
+            type="text"
+            placeholder="Search volumes…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input-base pl-10 py-2.5 text-xs"
+            style={{ borderRadius: '12px' }}
+          />
+        </div>
+      </div>
 
-        {/* Volumes List/Table */}
-        <div className="bg-surface border border-border rounded-2xl shadow-sm overflow-hidden">
-          {loading ? (
-            <div className="p-8 text-center text-muted">Loading Docker volumes...</div>
-          ) : filteredVolumes.length === 0 ? (
-            <div className="p-8 text-center text-muted">No volumes found.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
-                <thead>
-                  <tr className="border-b border-border text-xs text-muted uppercase tracking-wider bg-bg/20">
-                    <th className="p-4 font-semibold">Volume Name</th>
-                    <th className="p-4 font-semibold">Driver</th>
-                    <th className="p-4 font-semibold">Size</th>
-                    <th className="p-4 font-semibold">Created</th>
-                    <th className="p-4 font-semibold text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {filteredVolumes.map(vol => (
-                    <tr key={vol.name} className="hover:bg-bg/10 transition-colors">
-                      <td className="p-4 font-semibold text-text flex items-center gap-3">
-                        <div className="p-2 bg-purple-500/10 border border-purple-500/20 text-purple-600 rounded-lg shrink-0">
-                          <Database className="w-4 h-4" />
-                        </div>
-                        <span className="truncate max-w-xs">{vol.name}</span>
-                      </td>
-                      <td className="p-4 font-mono text-xs text-muted">{vol.driver}</td>
-                      <td className="p-4 font-medium text-text">{vol.size || '—'}</td>
-                      <td className="p-4 text-muted text-xs">{formatDate(vol.created)}</td>
-                      <td className="p-4">
-                        <div className="flex items-center justify-center">
-                          <button
-                            disabled
-                            className="p-2 text-muted opacity-40 cursor-not-allowed rounded-lg"
-                            title="Removing volumes isn't supported yet"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      <Card className="overflow-hidden" animate={false}>
+        {loading ? (
+          <SkeletonRows rows={5} cols={5} />
+        ) : filteredVolumes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3"
+              style={{ background: 'var(--color-surface)', border: '1px solid var(--color-glass-border)' }}
+            >
+              <Database className="w-5 h-5 text-muted" />
             </div>
-          )}
-        </div>
-      </main>
-    </div>
+            <p className="text-sm text-muted">No volumes found</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--color-glass-border)' }}>
+                  {['Volume Name', 'Driver', 'Size', 'Created', 'Actions'].map((h) => (
+                    <th key={h} className="px-5 py-4 text-2xs font-bold text-muted uppercase tracking-widest">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredVolumes.map((vol, idx) => (
+                  <motion.tr
+                    key={vol.name}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: idx * 0.04 }}
+                    className="data-row group/row"
+                    style={{ borderBottom: '1px solid var(--color-glass-border)' }}
+                  >
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                          style={{ background: 'rgba(10,79,122,0.15)', border: '1px solid rgba(10,79,122,0.3)' }}
+                        >
+                          <Database className="w-4 h-4" style={{ color: 'var(--color-accent)' }} />
+                        </div>
+                        <span className="font-semibold text-text text-xs truncate max-w-[200px]">{vol.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 font-mono text-2xs text-muted">{vol.driver}</td>
+                    <td className="px-5 py-4 text-xs font-medium text-text">{vol.size || '—'}</td>
+                    <td className="px-5 py-4 text-2xs text-muted">{formatDate(vol.created)}</td>
+                    <td className="px-5 py-4">
+                      <button
+                        disabled
+                        title="Removing volumes isn't supported yet"
+                        className="row-actions p-2 rounded-lg opacity-30 cursor-not-allowed"
+                        style={{ color: 'var(--color-danger)' }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </AppShell>
   )
 }
 

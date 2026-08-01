@@ -118,6 +118,18 @@ class AiExecuteRequest(BaseModel):
         return value.strip()
 
 
+class AiHealthResponse(BaseModel):
+    """Real, live reachability status for the configured AI provider — never hardcoded."""
+
+    connected: bool = Field(..., description="Whether the configured Ollama host responded just now.")
+    host: str = Field(..., description="The Ollama host currently configured via OLLAMA_URL.")
+    model: str = Field(..., description="The model currently configured via OLLAMA_MODEL.")
+    model_available: bool = Field(
+        ...,
+        description="Whether the configured model is present on the reachable Ollama host.",
+    )
+
+
 class AiExecuteResponse(BaseModel):
     """
     Result of interpreting and (when applicable) executing a natural

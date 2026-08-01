@@ -28,11 +28,20 @@ def get_current_user(
     ------
     HTTPException (401)
         If the token is invalid, expired, or the user no longer exists in the DB.
+    HTTPException (403)
+        If the account has since been deactivated — checked on every request
+        so a disabled account stops working immediately rather than only
+        once its already-issued token naturally expires.
     """
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="The user belonging to this token no longer exists.",
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is disabled",
         )
     return user

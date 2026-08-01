@@ -1,463 +1,485 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Sidebar from '../../components/common/Sidebar'
+import { motion } from 'framer-motion'
+import AppShell from '../../components/common/ui/AppShell'
+import PageHeader from '../../components/common/ui/PageHeader'
+import Card from '../../components/common/ui/Card'
 import useContainers from '../../hooks/useContainers'
+import useCountUp from '../../hooks/useCountUp'
 import { executeDockerAction, getContainerStats } from '../../services/docker'
 import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../components/common/ui/ToastProvider'
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts'
 import {
-  Play,
-  Square,
-  RotateCw,
-  Bot,
-  ArrowRight,
-  CheckCircle2,
-  AlertCircle,
-  TrendingUp,
-  Cpu,
-  Activity,
-  Award,
+  Play, Square, RotateCw, Bot, CheckCircle2, AlertCircle,
+  Cpu, Activity, Award, Sparkles, Send, TrendingUp, TrendingDown,
+  Circle,
 } from 'lucide-react'
 
-// Constants for PieChart
-const COLORS = ['#16a34a', '#dc2626', '#d97706'] // Green, Red, Amber
+const PIE_COLORS = ['#10b981', '#ef4444', '#f59e0b']
+
+// Radial ring metric card
+const MetricRing = ({ value, max = 100, color, size = 72 }) => {
+  const r = (size - 8) / 2
+  const circ = 2 * Math.PI * r
+  const offset = circ - (value / max) * circ
+
+  return (
+    <svg width={size} height={size} className="shrink-0">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none"
+        stroke="rgba(255,255,255,0.05)" strokeWidth="4" />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none"
+        stroke={color} strokeWidth="4" strokeLinecap="round"
+        strokeDasharray={circ} strokeDashoffset={offset}
+        style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', transition: 'stroke-dashoffset 1.2s cubic-bezier(0.16,1,0.3,1)' }}
+      />
+    </svg>
+  )
+}
+
+const AnimatedStat = ({ value }) => {
+  const display = useCountUp(value)
+  return <span>{Math.round(display)}</span>
+}
+
+const containerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.07 } },
+}
+const itemVariant = {
+  hidden:  { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } },
+}
 
 const Dashboard = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { toast } = useToast()
   const { containers, loading, refetch } = useContainers(5000)
 
   const [statsMap, setStatsMap] = useState({})
   const [avgCpu, setAvgCpu] = useState(0)
   const [avgMem, setAvgMem] = useState(0)
+  // Starts empty and fills in only with real polled measurements below —
+  // no fabricated history. MAX_HISTORY_POINTS caps how many recent real
+  // samples stay on the chart once it's full.
+  const [metricHistory, setMetricHistory] = useState([])
 
-  // Real-time metric history for chart
-  const [metricHistory, setMetricHistory] = useState([
-    { name: '12 AM', cpu: 32, memory: 58 },
-    { name: '4 AM', cpu: 45, memory: 61 },
-    { name: '8 AM', cpu: 41, memory: 63 },
-    { name: '12 PM', cpu: 38, memory: 66 },
-    { name: '4 PM', cpu: 48, memory: 64 },
-    { name: '8 PM', cpu: 40, memory: 65 },
-  ])
-
-  // Count container states
   const runningCount = containers.filter((c) => c.status === 'running').length
   const stoppedCount = containers.filter((c) => c.status === 'exited' || c.status === 'stopped').length
-  const pausedCount = containers.filter((c) => c.status === 'paused').length
-  const totalCount = containers.length
+  const pausedCount  = containers.filter((c) => c.status === 'paused').length
+  const totalCount   = containers.length
 
-  // Calculate dynamic health score
-  const healthScore = totalCount === 0 ? 100 : Math.max(50, 100 - stoppedCount * 15 - pausedCount * 5)
+  const healthScore  = totalCount === 0 ? 100 : Math.max(50, 100 - stoppedCount * 15 - pausedCount * 5)
+  const healthStatus = healthScore >= 90 ? 'Excellent' : healthScore >= 75 ? 'Good' : healthScore >= 60 ? 'Warning' : 'Critical'
+  const healthColor  = healthScore >= 90 ? '#10b981' : healthScore >= 75 ? '#f59e0b' : '#ef4444'
 
-  let healthStatus = 'Excellent'
-  if (healthScore < 60) {
-    healthStatus = 'Critical'
-  } else if (healthScore < 75) {
-    healthStatus = 'Warning'
-  } else if (healthScore < 90) {
-    healthStatus = 'Good'
-  }
-
-  // Pie chart data
   const hasData = runningCount > 0 || stoppedCount > 0 || pausedCount > 0
   const pieData = hasData
     ? [
         { name: 'Running', value: runningCount },
         { name: 'Stopped', value: stoppedCount },
-        { name: 'Paused', value: pausedCount },
+        { name: 'Paused',  value: pausedCount  },
       ]
     : [{ name: 'No Containers', value: 1 }]
 
-  // Fetch CPU and Memory stats periodically
   useEffect(() => {
-    if (!containers || containers.length === 0) {
-      setAvgCpu(0)
-      setAvgMem(0)
-      return
-    }
-
+    if (!containers || containers.length === 0) { setAvgCpu(0); setAvgMem(0); return }
     const fetchStats = async () => {
       const newStats = {}
-      let totalCpu = 0
-      let totalMem = 0
-      let activeCount = 0
-
+      let totalCpu = 0, totalMem = 0, activeCount = 0
       for (const c of containers) {
         if (c.status === 'running') {
           try {
             const stats = await getContainerStats(c.id)
             const memMB = (stats.memory_usage / (1024 * 1024)).toFixed(1)
-            newStats[c.name] = {
-              cpu: `${stats.cpu_percent}%`,
-              memory: `${memMB} MB`,
-            }
-            totalCpu += stats.cpu_percent
-            totalMem += stats.memory_percent
-            activeCount++
-          } catch {
-            newStats[c.name] = { cpu: '—', memory: '—' }
-          }
-        } else {
-          newStats[c.name] = { cpu: '0%', memory: '0 MB' }
-        }
+            newStats[c.name] = { cpu: `${stats.cpu_percent}%`, memory: `${memMB} MB` }
+            totalCpu += stats.cpu_percent; totalMem += stats.memory_percent; activeCount++
+          } catch { newStats[c.name] = { cpu: '—', memory: '—' } }
+        } else { newStats[c.name] = { cpu: '0%', memory: '0 MB' } }
       }
       setStatsMap(newStats)
-
       if (activeCount > 0) {
-        const calculatedCpu = Math.round(totalCpu / activeCount)
-        const calculatedMem = Math.round(totalMem / activeCount)
-        setAvgCpu(calculatedCpu)
-        setAvgMem(calculatedMem)
-
-        // Add to line chart history
+        const cpu = Math.round(totalCpu / activeCount)
+        const mem = Math.round(totalMem / activeCount)
+        setAvgCpu(cpu); setAvgMem(mem)
         setMetricHistory((prev) => {
-          const nextTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          return [...prev.slice(1), { name: nextTime, cpu: calculatedCpu, memory: calculatedMem }]
+          const t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          // Keep at most the last 5 real points plus this new one — with
+          // an empty starting array this grows to a window of 6 and then
+          // slides, instead of prev.slice(1) which only slides correctly
+          // when the array is already pre-filled.
+          return [...prev.slice(-5), { name: t, cpu, memory: mem }]
         })
-      } else {
-        setAvgCpu(0)
-        setAvgMem(0)
-      }
+      } else { setAvgCpu(0); setAvgMem(0) }
     }
-
     fetchStats()
     const id = setInterval(fetchStats, 6000)
     return () => clearInterval(id)
   }, [containers])
 
   const handleContainerAction = async (action, containerId) => {
-    try {
-      await executeDockerAction(action, containerId)
-      refetch()
-    } catch (e) {
-      alert(`Action failed: ${e.message}`)
-    }
+    try { await executeDockerAction(action, containerId); refetch() }
+    catch (e) { toast.error(`Action failed: ${e.message}`) }
+  }
+
+  const TOOLTIP_STYLE = {
+    backgroundColor: 'var(--color-surface-solid)',
+    borderColor: 'var(--color-glass-border)',
+    borderRadius: '14px',
+    border: '1px solid var(--color-glass-border)',
+    fontSize: '12px',
   }
 
   return (
-    <div className="flex min-h-screen bg-bg">
-      <Sidebar />
-      <main className="flex-1 p-8 overflow-y-auto space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-extrabold text-text tracking-tight">Dashboard</h2>
-            <p className="text-muted text-sm mt-1">
-              Welcome back{user?.name ? `, ${user.name}` : ''}! Here's what's happening with your Docker environment.
-            </p>
-          </div>
-        </div>
+    <AppShell contentClassName="p-8">
+      <PageHeader
+        title="Dashboard"
+        subtitle={`Welcome back${user?.name ? `, ${user.name}` : ''}! Your Docker environment at a glance.`}
+      />
 
-        {/* 5-Metrics Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Card 1: Running Containers */}
-          <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="block text-xs font-semibold text-muted uppercase tracking-wider">Running Containers</span>
-                <span className="block text-3xl font-extrabold text-text mt-2">{runningCount}</span>
-              </div>
-              <div className="p-2.5 bg-success/10 border border-success/20 text-success rounded-xl">
-                <Play className="w-5 h-5 fill-current" />
-              </div>
-            </div>
-            <div className="flex items-center gap-1 text-[11px] font-semibold text-success mt-4">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>{runningCount > 0 ? `+ ${runningCount} active` : 'No active containers'}</span>
-            </div>
-          </div>
-
-          {/* Card 2: Stopped Containers */}
-          <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="block text-xs font-semibold text-muted uppercase tracking-wider">Stopped Containers</span>
-                <span className="block text-3xl font-extrabold text-text mt-2">{stoppedCount}</span>
-              </div>
-              <div className="p-2.5 bg-danger/10 border border-danger/20 text-danger rounded-xl">
-                <Square className="w-5 h-5 fill-current" />
-              </div>
-            </div>
-            <div className="flex items-center gap-1 text-[11px] font-semibold text-danger mt-4">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>{stoppedCount > 0 ? `${stoppedCount} stopped` : 'No stopped containers'}</span>
-            </div>
-          </div>
-
-          {/* Card 3: CPU Usage */}
-          <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="block text-xs font-semibold text-muted uppercase tracking-wider">CPU Usage</span>
-                <span className="block text-3xl font-extrabold text-text mt-2">{avgCpu}%</span>
-              </div>
-              <div className="p-2.5 bg-primary/10 border border-primary/20 text-primary rounded-xl">
-                <Cpu className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="text-[11px] font-semibold text-success mt-4">{avgCpu < 70 ? 'Good' : 'High'}</div>
-          </div>
-
-          {/* Card 4: Memory Usage */}
-          <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="block text-xs font-semibold text-muted uppercase tracking-wider">Memory Usage</span>
-                <span className="block text-3xl font-extrabold text-text mt-2">{avgMem}%</span>
-              </div>
-              <div className="p-2.5 bg-secondary/10 border border-secondary/20 text-secondary rounded-xl">
-                <Activity className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="text-[11px] font-semibold text-success mt-4">{avgMem < 80 ? 'Good' : 'High'}</div>
-          </div>
-
-          {/* Card 5: AI Health Score */}
-          <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="block text-xs font-semibold text-muted uppercase tracking-wider">AI Health Score</span>
-                <span className="block text-3xl font-extrabold text-text mt-2">{healthScore} / 100</span>
-              </div>
-              <div className="p-2.5 bg-warning/10 border border-warning/20 text-warning rounded-xl">
-                <Award className="w-5 h-5" />
-              </div>
-            </div>
-            <div
-              className={`text-[11px] font-semibold mt-4 ${
-                healthScore >= 90 ? 'text-success' : healthScore >= 70 ? 'text-warning' : 'text-danger'
-              }`}
+      {/* ── METRIC CARDS ROW ── */}
+      <motion.div
+        variants={containerVariants} initial="hidden" animate="visible"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6"
+      >
+        {[
+          {
+            title: 'Running',        value: runningCount, unit: '',      ring: true,
+            color: '#10b981', icon: Play,     note: 'Active containers',
+          },
+          {
+            title: 'Stopped',        value: stoppedCount, unit: '',      ring: true,
+            color: '#ef4444', icon: Square,   note: 'Exited containers',
+          },
+          {
+            title: 'CPU',            value: avgCpu,       unit: '%',     ring: true,
+            color: '#2496ed', icon: Cpu,      note: avgCpu < 70 ? 'Normal' : 'High load',
+          },
+          {
+            title: 'Memory',         value: avgMem,       unit: '%',     ring: true,
+            color: '#00d4ff', icon: Activity, note: avgMem < 80 ? 'Healthy' : 'High usage',
+          },
+          {
+            title: 'Health Score',   value: healthScore,  unit: '/100',  ring: true,
+            color: healthColor, icon: Award, note: healthStatus,
+          },
+        ].map((m, i) => (
+          <motion.div key={m.title} variants={itemVariant}>
+            <Card
+              glow
+              animate={false}
+              className="p-4 relative overflow-hidden"
             >
-              {healthStatus}
-            </div>
-          </div>
-        </div>
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <p className="text-2xs font-semibold text-muted uppercase tracking-widest">{m.title}</p>
+                  <p className="text-2xl font-extrabold text-text mt-1 tabular-nums" style={{ letterSpacing: '-0.03em' }}>
+                    <AnimatedStat value={m.value} />
+                    {m.unit && <span className="text-xs font-normal text-muted ml-0.5">{m.unit}</span>}
+                  </p>
+                </div>
+                <MetricRing value={m.value} max={m.title === 'Health Score' ? 100 : m.unit === '%' ? 100 : Math.max(m.value, 5)} color={m.color} size={52} />
+              </div>
+              <div className="flex items-center gap-1 text-2xs font-semibold" style={{ color: m.color }}>
+                <TrendingUp className="w-3 h-3" />
+                <span>{m.note}</span>
+              </div>
+              {/* Subtle corner glow */}
+              <div
+                className="absolute -bottom-4 -right-4 w-16 h-16 rounded-full pointer-events-none opacity-30"
+                style={{ background: `radial-gradient(circle, ${m.color} 0%, transparent 70%)`, filter: 'blur(12px)' }}
+              />
+            </Card>
+          </motion.div>
+        ))}
+      </motion.div>
 
-        {/* Containers Overview + Ask DockMind Column */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Containers Overview */}
-          <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm lg:col-span-2">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-text text-base uppercase tracking-wider">Container Overview</h3>
-              <button onClick={() => navigate('/containers')} className="text-xs font-semibold text-primary hover:underline">
-                View All
+      {/* ── ROW 2: Container Table + Ask DockMind ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+        {/* Container overview */}
+        <motion.div
+          variants={itemVariant} initial="hidden" animate="visible"
+          transition={{ delay: 0.35 }}
+          className="lg:col-span-2"
+        >
+          <Card glow className="p-5 h-full">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-sm font-bold text-text uppercase tracking-wider">Container Overview</h3>
+              <button
+                onClick={() => navigate('/containers')}
+                className="text-xs font-semibold transition-colors"
+                style={{ color: 'var(--color-glow)' }}
+              >
+                View All →
               </button>
             </div>
-
             {loading ? (
-              <div className="text-center text-muted p-8 text-sm">Loading containers...</div>
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-10 rounded-xl animate-shimmer bg-surface" />
+                ))}
+              </div>
             ) : containers.length === 0 ? (
-              <div className="text-center text-muted p-8 text-sm">No containers found.</div>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-12 h-12 rounded-2xl bg-surface flex items-center justify-center mb-3 border border-glassBorder">
+                  <Circle className="w-5 h-5 text-muted" />
+                </div>
+                <p className="text-sm text-muted">No containers found</p>
+              </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto -mx-1">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="border-b border-border text-xs text-muted font-semibold bg-bg/25">
-                      <th className="p-3">Container Name</th>
-                      <th className="p-3">Image</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">CPU</th>
-                      <th className="p-3">Memory</th>
-                      <th className="p-3 text-center">Actions</th>
+                    <tr className="border-b border-glassBorder">
+                      {['Name', 'Image', 'Status', 'CPU', 'Memory', 'Actions'].map((h) => (
+                        <th key={h} className="pb-3 px-2 text-2xs font-semibold text-muted uppercase tracking-widest">
+                          {h}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
-                    {containers.slice(0, 5).map((c) => {
+                  <tbody>
+                    {containers.slice(0, 5).map((c, idx) => {
                       const liveStats = statsMap[c.name] || { cpu: '0%', memory: '0 MB' }
+                      const isRunning = c.status === 'running'
                       return (
-                        <tr key={c.id} className="hover:bg-bg/10">
-                          <td className="p-3 font-semibold text-text">{c.name}</td>
-                          <td className="p-3 font-mono text-xs text-muted truncate max-w-[120px]">{c.image}</td>
-                          <td className="p-3">
-                            <span
-                              className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                c.status === 'running'
-                                  ? 'bg-success/10 text-success border border-success/20'
-                                  : 'bg-danger/10 text-danger border border-danger/20'
-                              }`}
-                            >
-                              {c.status}
+                        <motion.tr
+                          key={c.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: idx * 0.05 }}
+                          className="data-row border-b border-glassBorder last:border-0"
+                        >
+                          <td className="px-2 py-3 font-semibold text-text text-xs">{c.name}</td>
+                          <td className="px-2 py-3 font-mono text-2xs text-muted max-w-[100px] truncate">{c.image}</td>
+                          <td className="px-2 py-3">
+                            <span className="flex items-center gap-1.5">
+                              <span className={`status-dot ${isRunning ? 'running' : 'stopped'}`} />
+                              <span className={`text-2xs font-semibold capitalize ${isRunning ? 'text-success' : 'text-danger'}`}>
+                                {c.status}
+                              </span>
                             </span>
                           </td>
-                          <td className="p-3 font-medium text-text">{liveStats.cpu}</td>
-                          <td className="p-3 font-medium text-text">{liveStats.memory}</td>
-                          <td className="p-3">
-                            <div className="flex items-center justify-center gap-1">
+                          <td className="px-2 py-3 text-xs font-medium text-text tabular-nums">{liveStats.cpu}</td>
+                          <td className="px-2 py-3 text-xs font-medium text-text tabular-nums">{liveStats.memory}</td>
+                          <td className="px-2 py-3">
+                            <div className="row-actions flex items-center gap-0.5">
                               {c.status !== 'running' ? (
-                                <button
-                                  onClick={() => handleContainerAction('start', c.id)}
-                                  className="p-1.5 text-success hover:bg-success/10 rounded"
-                                >
+                                <button onClick={() => handleContainerAction('start', c.id)}
+                                  className="p-1.5 text-success hover:bg-success/10 rounded-lg transition-all" title="Start">
                                   <Play className="w-3.5 h-3.5 fill-current" />
                                 </button>
                               ) : (
-                                <button
-                                  onClick={() => handleContainerAction('stop', c.id)}
-                                  className="p-1.5 text-danger hover:bg-danger/10 rounded"
-                                >
+                                <button onClick={() => handleContainerAction('stop', c.id)}
+                                  className="p-1.5 text-danger hover:bg-danger/10 rounded-lg transition-all" title="Stop">
                                   <Square className="w-3.5 h-3.5 fill-current" />
                                 </button>
                               )}
-                              <button
-                                onClick={() => handleContainerAction('restart', c.id)}
-                                className="p-1.5 text-primary hover:bg-primary/10 rounded"
-                              >
+                              <button onClick={() => handleContainerAction('restart', c.id)}
+                                className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-all" title="Restart">
                                 <RotateCw className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </td>
-                        </tr>
+                        </motion.tr>
                       )
                     })}
                   </tbody>
                 </table>
               </div>
             )}
-          </div>
+          </Card>
+        </motion.div>
 
-          {/* Right: Ask DockMind — links out to the one canonical chat page */}
-          <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center h-[380px]">
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center mb-4">
-              <Bot className="w-7 h-7" />
+        {/* Ask DockMind */}
+        <motion.div variants={itemVariant} initial="hidden" animate="visible" transition={{ delay: 0.4 }}>
+          <Card glow className="p-5 flex flex-col h-full relative overflow-hidden">
+            {/* Background glow */}
+            <div
+              className="absolute -top-16 -right-16 w-48 h-48 rounded-full pointer-events-none"
+              style={{
+                background: 'radial-gradient(circle, rgba(0,212,255,0.12) 0%, transparent 60%)',
+                filter: 'blur(30px)',
+              }}
+            />
+            <div className="relative flex-1 flex flex-col items-center justify-center text-center py-4">
+              {/* AI icon */}
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5 animate-float"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(0,212,255,0.15) 0%, rgba(36,150,237,0.1) 100%)',
+                  border: '1px solid rgba(0,212,255,0.25)',
+                  boxShadow: '0 0 32px -8px rgba(0,212,255,0.4)',
+                }}
+              >
+                <Bot className="w-8 h-8" style={{ color: 'var(--color-glow)' }} />
+              </div>
+              <h3 className="font-bold text-text text-lg mb-2" style={{ letterSpacing: '-0.02em' }}>Ask DockMind</h3>
+              <p className="text-muted text-xs leading-relaxed mb-6 max-w-[200px]">
+                Query your Docker environment in plain English. AI handles the rest.
+              </p>
+
+              {/* Suggested pills */}
+              <div className="flex flex-wrap gap-1.5 justify-center mb-5">
+                {['Show containers', 'Check health', 'View logs'].map((t) => (
+                  <span key={t}
+                    className="px-2.5 py-1 rounded-full text-2xs font-medium cursor-pointer hover:opacity-80 transition-opacity"
+                    style={{
+                      background: 'rgba(0,212,255,0.08)',
+                      border: '1px solid rgba(0,212,255,0.2)',
+                      color: 'var(--color-glow)',
+                    }}
+                    onClick={() => navigate(`/ai-assistant?prompt=${encodeURIComponent(t)}`)}
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
             </div>
-            <h3 className="font-bold text-text text-base mb-2">Ask DockMind</h3>
-            <p className="text-muted text-xs leading-relaxed mb-6 max-w-[220px]">
-              Manage containers, check logs, and get answers about your Docker environment in plain English.
-            </p>
+
+            {/* Input CTA */}
             <button
               onClick={() => navigate('/ai-assistant')}
-              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:opacity-95 transition-opacity"
+              className="relative w-full flex items-center gap-3 pl-4 pr-1.5 py-2 rounded-full transition-all duration-200 group"
+              style={{
+                background: 'var(--color-bg)',
+                border: '1px solid var(--color-glass-border)',
+              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,212,255,0.35)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--color-glass-border)'}
             >
-              Open AI Assistant
-              <ArrowRight className="w-4 h-4" />
+              <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--color-glow)' }} />
+              <span className="flex-1 text-left text-xs text-muted truncate">Ask me anything…</span>
+              <span
+                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-transform group-hover:scale-105"
+                style={{
+                  background: 'linear-gradient(135deg, #2496ed, #00d4ff)',
+                  boxShadow: '0 0 16px -4px rgba(0,212,255,0.5)',
+                }}
+              >
+                <Send className="w-3.5 h-3.5 text-white" />
+              </span>
             </button>
-          </div>
-        </div>
+          </Card>
+        </motion.div>
+      </div>
 
-        {/* Charts & checklist row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Chart 1: Resource Usage */}
-          <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm flex flex-col h-[320px]">
-            <h3 className="font-bold text-text text-sm uppercase tracking-wider mb-4">Resource Usage</h3>
-            <div className="flex-1">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={metricHistory}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis dataKey="name" stroke="var(--color-muted)" fontSize={9} />
-                  <YAxis stroke="var(--color-muted)" fontSize={9} domain={[0, 100]} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--color-surface)',
-                      borderColor: 'var(--color-border)',
-                      borderRadius: '12px',
-                    }}
-                  />
-                  <Line type="monotone" dataKey="cpu" stroke="var(--color-primary)" strokeWidth={2.5} name="CPU (%)" dot={false} />
-                  <Line
-                    type="monotone"
-                    dataKey="memory"
-                    stroke="var(--color-secondary)"
-                    strokeWidth={2.5}
-                    name="Memory (%)"
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+      {/* ── ROW 3: Charts + Health ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* Area chart */}
+        <motion.div variants={itemVariant} initial="hidden" animate="visible" transition={{ delay: 0.48 }} className="md:col-span-1">
+          <Card glow className="p-5 h-72">
+            <h3 className="text-2xs font-bold text-muted uppercase tracking-widest mb-4">Resource Usage</h3>
+            <div className="h-52">
+              {metricHistory.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-xs text-muted text-center px-4">
+                  Waiting for the first real sample…
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={metricHistory}>
+                    <defs>
+                      <linearGradient id="cpuG" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="memG" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--color-glow)" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="var(--color-glow)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-glass-border)" vertical={false} />
+                    <XAxis dataKey="name" stroke="var(--color-muted)" fontSize={9} tickLine={false} />
+                    <YAxis stroke="var(--color-muted)" fontSize={9} domain={[0, 100]} tickLine={false} axisLine={false} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Area type="monotone" dataKey="cpu" stroke="var(--color-primary)" strokeWidth={2} fill="url(#cpuG)" name="CPU %" />
+                    <Area type="monotone" dataKey="memory" stroke="var(--color-glow)" strokeWidth={2} fill="url(#memG)" name="Memory %" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
-          </div>
+          </Card>
+        </motion.div>
 
-          {/* Chart 2: Containers Status */}
-          <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm flex flex-col h-[320px]">
-            <h3 className="font-bold text-text text-sm uppercase tracking-wider mb-4">Containers Status</h3>
-            <div className="flex-1 flex items-center justify-center relative">
+        {/* Donut chart */}
+        <motion.div variants={itemVariant} initial="hidden" animate="visible" transition={{ delay: 0.52 }}>
+          <Card glow className="p-5 h-72">
+            <h3 className="text-2xs font-bold text-muted uppercase tracking-widest mb-3">Container Status</h3>
+            <div className="h-44 relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={3} dataKey="value">
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={3} dataKey="value">
+                    {pieData.map((_, index) => (
+                      <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} stroke="none" />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="absolute flex flex-col items-center justify-center">
-                <span className="text-2xl font-black text-text">{totalCount}</span>
-                <span className="text-[10px] font-semibold text-muted uppercase tracking-wider">Total</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-2xl font-black text-text tabular-nums">{totalCount}</span>
+                <span className="text-2xs font-semibold text-muted uppercase tracking-wider">Total</span>
               </div>
             </div>
-            <div className="flex justify-center gap-4 text-xs font-semibold text-muted mt-2">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a]"></span>
-                <span>Running ({runningCount})</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#dc2626]"></span>
-                <span>Stopped ({stoppedCount})</span>
-              </div>
+            <div className="flex justify-center gap-4 text-2xs font-semibold text-muted mt-1">
+              {[{ c: '#10b981', l: `Running (${runningCount})` }, { c: '#ef4444', l: `Stopped (${stoppedCount})` }].map(item => (
+                <div key={item.l} className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full" style={{ background: item.c, boxShadow: `0 0 6px ${item.c}` }} />
+                  <span>{item.l}</span>
+                </div>
+              ))}
             </div>
-          </div>
+          </Card>
+        </motion.div>
 
-          {/* Card 3: AI Health Summary */}
-          <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm flex flex-col h-[320px] justify-between">
+        {/* AI Health Summary */}
+        <motion.div variants={itemVariant} initial="hidden" animate="visible" transition={{ delay: 0.56 }}>
+          <Card glow className="p-5 flex flex-col h-72 justify-between">
             <div>
-              <h3 className="font-bold text-text text-sm uppercase tracking-wider mb-5">AI Health Summary</h3>
-              <div className="space-y-4">
+              <h3 className="text-2xs font-bold text-muted uppercase tracking-widest mb-4">AI Health Summary</h3>
+              <div className="space-y-3">
                 {[
-                  {
-                    text:
-                      totalCount > 0
-                        ? 'Your Docker environment is healthy and performing well.'
-                        : 'No active containers found to evaluate.',
-                  },
-                  {
-                    text:
-                      totalCount > 0
-                        ? `Resource usage is normal (${totalCount} active containers)`
-                        : 'Resources are idle',
-                  },
-                ].map((item, i) => (
-                  <div key={i} className="flex gap-3 text-xs leading-relaxed">
-                    <CheckCircle2 className="w-5 h-5 text-success shrink-0 mt-0.5" />
-                    <span className="text-text font-medium">{item.text}</span>
+                  totalCount > 0
+                    ? 'Docker environment is healthy and performing well.'
+                    : 'No active containers found to evaluate.',
+                  totalCount > 0
+                    ? `Resource usage is normal (${totalCount} containers)`
+                    : 'Resources are idle',
+                ].map((text, i) => (
+                  <div key={i} className="flex gap-2.5 text-xs leading-relaxed">
+                    <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" />
+                    <span className="text-textDim font-medium">{text}</span>
                   </div>
                 ))}
                 {stoppedCount > 0 && (
-                  <div className="flex gap-3 text-xs leading-relaxed">
-                    <AlertCircle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
-                    <span className="text-text font-medium">
-                      {stoppedCount} container{stoppedCount === 1 ? '' : 's'} stopped — review the Containers page.
+                  <div className="flex gap-2.5 text-xs leading-relaxed">
+                    <AlertCircle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+                    <span className="text-textDim font-medium">
+                      {stoppedCount} container{stoppedCount > 1 ? 's' : ''} stopped — review Containers.
                     </span>
                   </div>
                 )}
               </div>
             </div>
+            {/* Health badge */}
             <div
-              className={`p-3 border text-xs font-semibold rounded-xl flex items-center justify-center ${
-                healthScore >= 90
-                  ? 'bg-success/10 border-success/20 text-success'
-                  : healthScore >= 70
-                  ? 'bg-warning/10 border-warning/20 text-warning'
-                  : 'bg-danger/10 border-danger/20 text-danger'
-              }`}
+              className="p-3 rounded-2xl text-xs font-bold text-center"
+              style={{
+                background: `${healthColor}12`,
+                border: `1px solid ${healthColor}30`,
+                color: healthColor,
+              }}
             >
-              System Health Score: {healthStatus.toUpperCase()} ({healthScore}%)
+              System Health: {healthStatus.toUpperCase()} — {healthScore}%
             </div>
-          </div>
-        </div>
-      </main>
-    </div>
+          </Card>
+        </motion.div>
+      </div>
+    </AppShell>
   )
 }
 

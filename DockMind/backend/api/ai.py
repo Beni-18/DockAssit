@@ -15,6 +15,7 @@ from models.user import User
 from schemas.ai_schema import (
     AiExecuteRequest,
     AiExecuteResponse,
+    AiHealthResponse,
     ChatRequest,
     ChatResponse,
     DockerIntent,
@@ -26,6 +27,7 @@ from services.ai_service import (
     AIProviderTimeoutError,
     AIProviderUnavailableError,
     AIServiceError,
+    check_ollama_health,
     generate_chat_response,
     get_ai_provider,
     interpret_prompt,
@@ -34,6 +36,16 @@ from services.chatbot_service import execute_prompt
 from services.docker_service import DockerService, get_docker_service
 
 router = APIRouter()
+
+
+@router.get("/health", response_model=AiHealthResponse)
+async def ai_health(current_user: User = Depends(get_current_user)) -> dict:
+    """
+    Report the real, current reachability of the configured Ollama host and
+    whether the configured model is actually present there — used by the UI
+    to show a genuine connected/disconnected status instead of an assumed one.
+    """
+    return await check_ollama_health()
 
 
 @router.post("/interpret", response_model=DockerIntent)
